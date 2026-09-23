@@ -2,10 +2,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   useMediaDetail, useHistory, useInformers, useDeleteMedia,
   useCreateHistory, useCreateInformer, useDeleteInformer, useCollections,
-  useAddCollectionItem, useToggleFavorite, useInformersList,
+  useAddCollectionItem, useToggleFavorite, useInformersList, useUpdateMedia,
 } from '@/hooks/useApi'
-import type { Informer } from '@/types'
-import { Pencil, Trash2, Star, X } from 'lucide-react'
+import type { DownloadStatus, Informer } from '@/types'
+import { Pencil, Trash2, Star, X, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { SiteRating, ratingColor } from '@/components/SiteRating'
@@ -21,6 +21,21 @@ const statusLabels: Record<string, string> = {
 }
 const mediaTypeLabels: Record<string, string> = {
   movie: 'Фильм', series: 'Сериал',
+}
+const downloadCycle: Record<DownloadStatus, DownloadStatus> = {
+  none: 'need_download',
+  need_download: 'downloaded',
+  downloaded: 'none',
+}
+const downloadTitles: Record<string, string> = {
+  none: 'Нет',
+  need_download: 'Скачать',
+  downloaded: 'Скачано',
+}
+const downloadButtonClasses: Record<string, string> = {
+  none: 'border-transparent bg-white text-black hover:bg-neutral-100 hover:text-black',
+  need_download: 'border-transparent bg-yellow-400 text-white hover:bg-yellow-500 hover:text-white',
+  downloaded: 'border-transparent bg-green-500 text-black hover:bg-green-600 hover:text-black',
 }
 
 export default function MediaDetailPage() {
@@ -38,6 +53,7 @@ export default function MediaDetailPage() {
   const deleteInformer = useDeleteInformer()
   const addCollectionItem = useAddCollectionItem()
   const toggleFavorite = useToggleFavorite()
+  const updateMedia = useUpdateMedia()
 
   const [newStatus, setNewStatus] = useState('')
   const [informerName, setInformerName] = useState('')
@@ -85,6 +101,13 @@ export default function MediaDetailPage() {
 
   const handleAddToCollection = async (collectionId: number) => {
     await addCollectionItem.mutateAsync({ collectionId, mediaEntryId: mediaId })
+  }
+
+  const handleCycleDownload = () => {
+    updateMedia.mutate({
+      id: mediaId,
+      data: { download_status: downloadCycle[entry.download_status as DownloadStatus] },
+    })
   }
 
   return (
@@ -160,6 +183,16 @@ export default function MediaDetailPage() {
             aria-label="Удалить"
           >
             <Trash2 />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleCycleDownload}
+            title={downloadTitles[entry.download_status]}
+            aria-label={downloadTitles[entry.download_status]}
+            className={cn(downloadButtonClasses[entry.download_status])}
+          >
+            <Download />
           </Button>
         </div>
       </div>
