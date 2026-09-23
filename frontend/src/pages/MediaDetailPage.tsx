@@ -2,8 +2,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   useMediaDetail, useHistory, useInformers, useDeleteMedia,
   useCreateHistory, useCreateInformer, useCollections, useAddCollectionItem,
+  useToggleFavorite,
 } from '@/hooks/useApi'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Star, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { SiteRating, ratingColor } from '@/components/SiteRating'
@@ -33,6 +34,7 @@ export default function MediaDetailPage() {
   const createHistory = useCreateHistory()
   const createInformer = useCreateInformer()
   const addCollectionItem = useAddCollectionItem()
+  const toggleFavorite = useToggleFavorite()
 
   const [newStatus, setNewStatus] = useState('')
   const [informerName, setInformerName] = useState('')
@@ -106,6 +108,30 @@ export default function MediaDetailPage() {
           </div>
         </div>
         <div className="flex flex-col gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate('/')}
+            title="Закрыть"
+            aria-label="Закрыть"
+          >
+            <X />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => toggleFavorite.mutate({ id: entry.id, isFavorite: !entry.is_favorite })}
+            title={entry.is_favorite ? 'Убрать из избранного' : 'В избранное'}
+            aria-label={entry.is_favorite ? 'Убрать из избранного' : 'В избранное'}
+            aria-pressed={entry.is_favorite}
+            className={cn(
+              entry.is_favorite
+                ? 'border-transparent bg-yellow-400 text-white hover:bg-yellow-500 hover:text-white'
+                : 'bg-white text-black hover:bg-neutral-100',
+            )}
+          >
+            <Star fill={entry.is_favorite ? 'currentColor' : 'none'} />
+          </Button>
           <Button variant="outline" size="icon" asChild title="Редактировать" aria-label="Редактировать">
             <Link to={`/media/${entry.id}/edit`}><Pencil /></Link>
           </Button>

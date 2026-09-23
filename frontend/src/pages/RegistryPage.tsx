@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useMediaList, useGenres } from '@/hooks/useApi'
+import { useMediaList, useGenres, useToggleFavorite } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Star } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -25,6 +27,13 @@ const downloadLabels: Record<string, string> = {
 
 function MediaCard({ entry }: { entry: MediaEntry }) {
   const posterSrc = entry.poster_local || entry.poster_url
+  const toggleFavorite = useToggleFavorite()
+
+  const handleToggleFavorite = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    toggleFavorite.mutate({ id: entry.id, isFavorite: !entry.is_favorite })
+  }
 
   return (
     <Link to={`/media/${entry.id}`}>
@@ -35,6 +44,21 @@ function MediaCard({ entry }: { entry: MediaEntry }) {
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Нет постера</div>
           )}
+          <button
+            type="button"
+            onClick={handleToggleFavorite}
+            title={entry.is_favorite ? 'Убрать из избранного' : 'В избранное'}
+            aria-label={entry.is_favorite ? 'Убрать из избранного' : 'В избранное'}
+            aria-pressed={entry.is_favorite}
+            className={cn(
+              'absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full shadow transition-colors',
+              entry.is_favorite
+                ? 'bg-yellow-400 text-white hover:bg-yellow-500'
+                : 'bg-white text-black hover:bg-neutral-100',
+            )}
+          >
+            <Star className="h-4 w-4" fill={entry.is_favorite ? 'currentColor' : 'none'} />
+          </button>
         </div>
         <CardContent className="p-3 space-y-1">
           <p className="font-medium text-sm line-clamp-1">{entry.title}</p>

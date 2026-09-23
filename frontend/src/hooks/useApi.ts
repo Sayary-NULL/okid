@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mediaApi, genresApi, countriesApi, searchApi, importApi, collectionsApi } from '@/api/endpoints'
+import type { MediaEntry } from '@/types'
 
 export const useGenres = () =>
   useQuery({ queryKey: ['genres'], queryFn: genresApi.list })
@@ -35,6 +36,39 @@ export const useDeleteMedia = () => {
   return useMutation({
     mutationFn: mediaApi.delete,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['media'] }),
+  })
+}
+
+export const useToggleFavorite = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, isFavorite }: { id: number; isFavorite: boolean }) =>
+      mediaApi.update(id, { is_favorite: isFavorite }),
+    onMutate: async ({ id, isFavorite }) => {
+      await qc.cancelQueries({ queryKey: ['media'] })
+      const previous = qc.getQueriesData({ queryKey: ['media'] })
+      qc.setQueriesData({ queryKey: ['media'] }, (old) => {
+        if (!old || typeof old !== 'object') return old
+        if ('results' in old && Array.isArray((old as { results?: MediaEntry[] }).results)) {
+          const data = old as { results: MediaEntry[] }
+          return {
+            ...data,
+            results: data.results.map((item) =>
+              item.id === id ? { ...item, is_favorite: isFavorite } : item,
+            ),
+          }
+        }
+        if ('id' in old && (old as MediaEntry).id === id) {
+          return { ...(old as MediaEntry), is_favorite: isFavorite }
+        }
+        return old
+      })
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous?.forEach(([key, value]) => qc.setQueryData(key, value))
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['media'] }),
   })
 }
 
