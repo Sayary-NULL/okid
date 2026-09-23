@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   useMediaDetail, useHistory, useInformers, useDeleteMedia,
-  useCreateHistory, useCreateInformer, useCollections, useAddCollectionItem,
-  useToggleFavorite,
+  useCreateHistory, useCreateInformer, useDeleteInformer, useCollections,
+  useAddCollectionItem, useToggleFavorite, useInformersList,
 } from '@/hooks/useApi'
+import type { Informer } from '@/types'
 import { Pencil, Trash2, Star, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,10 +30,12 @@ export default function MediaDetailPage() {
   const { data: entry, isLoading } = useMediaDetail(mediaId)
   const { data: history } = useHistory(mediaId)
   const { data: informers } = useInformers(mediaId)
+  const { data: allInformers } = useInformersList()
   const { data: collections } = useCollections()
   const deleteMedia = useDeleteMedia()
   const createHistory = useCreateHistory()
   const createInformer = useCreateInformer()
+  const deleteInformer = useDeleteInformer()
   const addCollectionItem = useAddCollectionItem()
   const toggleFavorite = useToggleFavorite()
 
@@ -60,10 +63,24 @@ export default function MediaDetailPage() {
     setNewStatus('')
   }
 
+  const trimmedInformer = informerName.trim()
+  const matchedInformer = allInformers?.find(
+    (inf: Informer) => inf.name.toLowerCase() === trimmedInformer.toLowerCase(),
+  )
+
   const handleAddInformer = async () => {
-    if (!informerName) return
-    await createInformer.mutateAsync({ id: mediaId, data: { informer_name: informerName } })
+    if (!trimmedInformer) return
+    await createInformer.mutateAsync({
+      id: mediaId,
+      data: matchedInformer
+        ? { informer: matchedInformer.id }
+        : { informer_name: trimmedInformer },
+    })
     setInformerName('')
+  }
+
+  const handleRemoveInformer = async (informerId: number) => {
+    await deleteInformer.mutateAsync({ id: mediaId, informerId })
   }
 
   const handleAddToCollection = async (collectionId: number) => {
@@ -182,19 +199,48 @@ export default function MediaDetailPage() {
         </TabsContent>
 
         <TabsContent value="informers" className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Кто порекомендовал?"
-              value={informerName}
-              onChange={(e) => setInformerName(e.target.value)}
-            />
-            <Button onClick={handleAddInformer} disabled={!informerName}>Добавить</Button>
-          </div>
           <div className="space-y-1">
-            {informers?.map((inf: { id: number; informer_name: string; created_at: string }) => (
-              <p key={inf.id} className="text-sm text-muted-foreground">
-                {new Date(inf.created_at).toLocaleString('ru-RU')} — {inf.informer_name}
+            <div className="flex gap-2">
+              <Input
+                list="informer-options"
+                placeholder="Кто порекомендовал?"
+                value={informerName}
+                onChange={(e) => setInformerName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddInformer()
+                }}
+              />
+              <datalist id="informer-options">
+                {allInformers?.map((inf: Informer) => (
+                  <option key={inf.id} value={inf.name} />
+                ))}
+              </datalist>
+              <Button onClick={handleAddInformer} disabled={!trimmedInformer}>Добавить</Button>
+            </div>
+            {trimmedInformer && !matchedInformer && (
+              <p className="text-xs text-muted-foreground">
+                Новый информатор «{trimmedInformer}» будет создан
               </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {informers?.map((inf: { id: number; informer: Informer; created_at: string }) => (
+              <Badge
+                key={inf.id}
+                variant="secondary"
+                className="gap-1 pr-1"
+                title={new Date(inf.created_at).toLocaleString('ru-RU')}
+              >
+                {inf.informer.name}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveInformer(inf.id)}
+                  aria-label={`Удалить информатора ${inf.informer.name}`}
+                  className="rounded-full p-0.5 hover:bg-black/10"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
             ))}
           </div>
         </TabsContent>

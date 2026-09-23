@@ -8,10 +8,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet, ReadOnlyModelViewSet
 
-from media.models import Country, Genre, MediaEntry, MediaHistory, MediaInformer
+from media.models import (
+    Country,
+    Genre,
+    Informer,
+    MediaEntry,
+    MediaHistory,
+    MediaInformer,
+)
 from media.serializers import (
     CountrySerializer,
     GenreSerializer,
+    InformerSerializer,
     MediaEntryDetailSerializer,
     MediaEntryListSerializer,
     MediaEntryWriteSerializer,
@@ -62,6 +70,7 @@ class MediaEntryViewSet(ModelViewSet):
         media_type = request.query_params.get("type")
         my_status = request.query_params.get("my_status")
         download_status = request.query_params.get("download_status")
+        informer = request.query_params.get("informer")
         q = request.query_params.get("q")
         is_favorite = request.query_params.get("is_favorite")
         is_anime = request.query_params.get("is_anime")
@@ -76,6 +85,8 @@ class MediaEntryViewSet(ModelViewSet):
             queryset = queryset.filter(my_status=my_status)
         if download_status:
             queryset = queryset.filter(download_status=download_status)
+        if informer:
+            queryset = queryset.filter(informers__informer_id=informer).distinct()
         if q:
             queryset = queryset.filter(title__icontains=q)
         if is_favorite:
@@ -148,8 +159,31 @@ class MediaEntryViewSet(ModelViewSet):
             context={"request": request, "media_entry": entry},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        instance = serializer.save()
+        return Response(
+            MediaInformerSerializer(instance).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"informers/(?P<informer_pk>\d+)",
+    )
+    def delete_informer(self, request, pk=None, informer_pk=None):
+        entry = self.get_object()
+        deleted, _ = MediaInformer.objects.filter(
+            media_entry=entry, user=request.user, pk=informer_pk
+        ).delete()
+        if not deleted:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InformerViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):
+    queryset = Informer.objects.all()
+    serializer_class = InformerSerializer
+    pagination_class = None
 
 
 class SearchView(APIView):

@@ -111,9 +111,59 @@ class TestMedia:
             {"informer_name": "Friend"},
         )
         assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data["informer"]["name"] == "Friend"
         resp2 = auth_client.get(f"/api/media/{entry.id}/informers/")
         assert resp2.status_code == status.HTTP_200_OK
         assert len(resp2.data) == 1
+
+    def test_informer_reused_across_entries(self, auth_client):
+        from media.models import Informer
+
+        user = auth_client.user
+        first = MediaEntry.objects.create(user=user, title="First")
+        second = MediaEntry.objects.create(user=user, title="Second")
+        auth_client.post(
+            f"/api/media/{first.id}/informers/", {"informer_name": "Friend"}
+        )
+        auth_client.post(
+            f"/api/media/{second.id}/informers/", {"informer_name": "friend"}
+        )
+        assert Informer.objects.count() == 1
+
+    def test_informers_list_and_create(self, auth_client):
+        resp = auth_client.post("/api/informers/", {"name": "Colleague"})
+        assert resp.status_code == status.HTTP_201_CREATED
+        resp2 = auth_client.get("/api/informers/")
+        assert resp2.status_code == status.HTTP_200_OK
+        assert len(resp2.data) == 1
+
+    def test_informer_delete(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="Delete Informer")
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/informers/",
+            {"informer_name": "Friend"},
+        )
+        informer_id = resp.data["id"]
+        resp2 = auth_client.delete(
+            f"/api/media/{entry.id}/informers/{informer_id}/"
+        )
+        assert resp2.status_code == status.HTTP_204_NO_CONTENT
+        resp3 = auth_client.get(f"/api/media/{entry.id}/informers/")
+        assert len(resp3.data) == 0
+
+    def test_filter_by_informer(self, auth_client):
+        user = auth_client.user
+        first = MediaEntry.objects.create(user=user, title="A")
+        MediaEntry.objects.create(user=user, title="B")
+        resp = auth_client.post(
+            f"/api/media/{first.id}/informers/", {"informer_name": "Friend"}
+        )
+        informer_id = resp.data["informer"]["id"]
+        resp2 = auth_client.get(f"/api/media/?informer={informer_id}")
+        assert resp2.status_code == status.HTTP_200_OK
+        assert resp2.data["count"] == 1
+        assert resp2.data["results"][0]["title"] == "A"
 
     def test_other_users_media_invisible(self, auth_client):
         other = User.objects.create_user("other", password="pass12345")

@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from media.models import Genre, Country, MediaEntry, MediaHistory, MediaInformer
+from media.models import (
+    Country,
+    Genre,
+    Informer,
+    MediaEntry,
+    MediaHistory,
+    MediaInformer,
+)
 
 
 class GenreSerializer(serializers.ModelSerializer):
@@ -11,6 +18,12 @@ class GenreSerializer(serializers.ModelSerializer):
 class CountrySerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
+        fields = ("id", "name")
+
+
+class InformerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Informer
         fields = ("id", "name")
 
 
@@ -33,21 +46,39 @@ class MediaHistoryCreateSerializer(serializers.ModelSerializer):
 
 
 class MediaInformerSerializer(serializers.ModelSerializer):
+    informer = InformerSerializer(read_only=True)
+
     class Meta:
         model = MediaInformer
-        fields = ("id", "informer_name", "created_at")
+        fields = ("id", "informer", "created_at")
         read_only_fields = ("created_at",)
 
 
-class MediaInformerCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MediaInformer
-        fields = ("informer_name",)
+class MediaInformerCreateSerializer(serializers.Serializer):
+    informer = serializers.PrimaryKeyRelatedField(
+        queryset=Informer.objects.all(), required=False
+    )
+    informer_name = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        if not attrs.get("informer") and not attrs.get("informer_name", "").strip():
+            raise serializers.ValidationError(
+                {"informer_name": "Укажите информатора."}
+            )
+        return attrs
 
     def create(self, validated_data):
-        validated_data["user"] = self.context["request"].user
-        validated_data["media_entry"] = self.context["media_entry"]
-        return super().create(validated_data)
+        informer = validated_data.get("informer")
+        if informer is None:
+            name = validated_data["informer_name"].strip()
+            informer, _ = Informer.objects.get_or_create(
+                name__iexact=name, defaults={"name": name}
+            )
+        return MediaInformer.objects.create(
+            user=self.context["request"].user,
+            media_entry=self.context["media_entry"],
+            informer=informer,
+        )
 
 
 class MediaEntryListSerializer(serializers.ModelSerializer):

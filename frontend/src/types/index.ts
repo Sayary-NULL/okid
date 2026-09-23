@@ -9,6 +9,11 @@ export interface Country {
   name: string
 }
 
+export interface Informer {
+  id: number
+  name: string
+}
+
 export type MediaType = 'movie' | 'series'
 export type MyStatus = 'plan_to_watch' | 'watching' | 'dropped' | 'completed'
 export type DownloadStatus = 'none' | 'need_download' | 'downloaded'
@@ -57,7 +62,7 @@ export interface MediaHistory {
 
 export interface MediaInformer {
   id: number
-  informer_name: string
+  informer: Informer
   created_at: string
 }
 

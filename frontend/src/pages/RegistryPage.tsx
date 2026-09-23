@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useMediaList, useGenres, useToggleFavorite } from '@/hooks/useApi'
+import { useMediaList, useGenres, useInformersList, useToggleFavorite } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -83,6 +83,7 @@ export default function RegistryPage() {
   const [myStatus, setMyStatus] = useState('')
   const [downloadStatus, setDownloadStatus] = useState('')
   const [genre, setGenre] = useState('')
+  const [informer, setInformer] = useState('')
   const [isFavorite, setIsFavorite] = useState('')
   const [isAnime, setIsAnime] = useState('')
 
@@ -92,11 +93,13 @@ export default function RegistryPage() {
   if (myStatus) params.my_status = myStatus
   if (downloadStatus) params.download_status = downloadStatus
   if (genre) params.genre = genre
+  if (informer) params.informer = informer
   if (isFavorite) params.is_favorite = isFavorite
   if (isAnime) params.is_anime = isAnime
 
   const { data, isLoading } = useMediaList(params)
   const { data: genres } = useGenres()
+  const { data: informers } = useInformersList()
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -148,6 +151,15 @@ export default function RegistryPage() {
             <SelectItem value="all">Все</SelectItem>
             {genres?.map((g: { slug: string; name: string }) => (
               <SelectItem key={g.slug} value={g.slug}>{g.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={informer} onValueChange={(v) => setInformer(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="Информатор" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все</SelectItem>
+            {informers?.map((inf: { id: number; name: string }) => (
+              <SelectItem key={inf.id} value={String(inf.id)}>{inf.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>

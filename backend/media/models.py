@@ -23,6 +23,16 @@ class Country(models.Model):
         return self.name
 
 
+class Informer(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
+
 class MediaEntry(models.Model):
     class MediaType(models.TextChoices):
         MOVIE = "movie", "Фильм"
@@ -121,11 +131,13 @@ class MediaInformer(models.Model):
         MediaEntry, on_delete=models.CASCADE, related_name="informers"
     )
     user = models.ForeignKey("auth.User", on_delete=models.CASCADE)
-    informer_name = models.CharField(max_length=200)
+    informer = models.ForeignKey(
+        Informer, on_delete=models.CASCADE, related_name="media_entries"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ("-created_at",)
 
     def __str__(self):
-        return f"{self.media_entry} — {self.informer_name}"
+        return f"{self.media_entry} — {self.informer.name}"

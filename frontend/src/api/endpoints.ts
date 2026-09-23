@@ -20,6 +20,12 @@ export const countriesApi = {
   list: () => api.get('/countries/').then((r) => r.data),
 }
 
+export const informersApi = {
+  list: () => api.get('/informers/').then((r) => r.data),
+  create: (data: { name: string }) =>
+    api.post('/informers/', data).then((r) => r.data),
+}
+
 export const mediaApi = {
   list: (params?: Record<string, string>) =>
     api.get('/media/', { params }).then((r) => r.data),
@@ -49,8 +55,10 @@ export const mediaApi = {
   informers: {
     list: (id: number) =>
       api.get(`/media/${id}/informers/`).then((r) => r.data),
-    create: (id: number, data: { informer_name: string }) =>
+    create: (id: number, data: { informer?: number; informer_name?: string }) =>
       api.post(`/media/${id}/informers/`, data).then((r) => r.data),
+    remove: (id: number, informerId: number) =>
+      api.delete(`/media/${id}/informers/${informerId}/`),
   },
 }
 

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { mediaApi, genresApi, countriesApi, searchApi, importApi, collectionsApi } from '@/api/endpoints'
+import { mediaApi, genresApi, countriesApi, informersApi, searchApi, importApi, collectionsApi } from '@/api/endpoints'
 import type { MediaEntry } from '@/types'
 
 export const useGenres = () =>
@@ -7,6 +7,9 @@ export const useGenres = () =>
 
 export const useCountries = () =>
   useQuery({ queryKey: ['countries'], queryFn: countriesApi.list })
+
+export const useInformersList = () =>
+  useQuery({ queryKey: ['informers'], queryFn: informersApi.list })
 
 export const useMediaList = (params?: Record<string, string>) =>
   useQuery({ queryKey: ['media', params], queryFn: () => mediaApi.list(params) })
@@ -106,9 +109,22 @@ export const useInformers = (mediaId: number) =>
 export const useCreateInformer = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { informer_name: string } }) =>
+    mutationFn: ({ id, data }: { id: number; data: { informer?: number; informer_name?: string } }) =>
       mediaApi.informers.create(id, data),
-    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['media', vars.id, 'informers'] }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['media', vars.id, 'informers'] })
+      qc.invalidateQueries({ queryKey: ['informers'] })
+    },
+  })
+}
+
+export const useDeleteInformer = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, informerId }: { id: number; informerId: number }) =>
+      mediaApi.informers.remove(id, informerId),
+    onSuccess: (_, vars) =>
+      qc.invalidateQueries({ queryKey: ['media', vars.id, 'informers'] }),
   })
 }
 
