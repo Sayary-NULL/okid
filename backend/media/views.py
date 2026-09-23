@@ -102,7 +102,7 @@ class MediaEntryViewSet(ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="save-poster")
     def save_poster(self, request, pk=None):
         entry = self.get_object()
         if not entry.poster_url:
