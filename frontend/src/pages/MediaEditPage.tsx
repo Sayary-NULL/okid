@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useMediaDetail, useUpdateMedia } from '@/hooks/useApi'
+import { useMediaDetail, useUpdateMedia, useSavePoster } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +15,7 @@ export default function MediaEditPage() {
   const navigate = useNavigate()
   const { data: entry, isLoading } = useMediaDetail(mediaId)
   const updateMedia = useUpdateMedia()
+  const savePoster = useSavePoster()
 
   const [title, setTitle] = useState('')
   const [originalTitle, setOriginalTitle] = useState('')
@@ -43,6 +44,10 @@ export default function MediaEditPage() {
       setIsAnime(entry.is_anime)
     }
   }, [entry])
+
+  const handleSavePoster = async () => {
+    await savePoster.mutateAsync(mediaId)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -142,6 +147,17 @@ export default function MediaEditPage() {
           <input type="checkbox" id="is_anime" checked={isAnime} onChange={(e) => setIsAnime(e.target.checked)} />
           <Label htmlFor="is_anime">Аниме</Label>
         </div>
+        {entry?.poster_url && !entry.poster_local && (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleSavePoster}
+            disabled={savePoster.isPending}
+          >
+            Сохранить постер локально
+          </Button>
+        )}
         <Button type="submit" className="w-full">Сохранить</Button>
       </form>
     </div>

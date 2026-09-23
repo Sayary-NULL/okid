@@ -1,10 +1,13 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  useMediaDetail, useHistory, useInformers, useDeleteMedia, useSavePoster,
+  useMediaDetail, useHistory, useInformers, useDeleteMedia,
   useCreateHistory, useCreateInformer, useCollections, useAddCollectionItem,
 } from '@/hooks/useApi'
+import { Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { SiteRating, ratingColor } from '@/components/SiteRating'
+import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,7 +30,6 @@ export default function MediaDetailPage() {
   const { data: informers } = useInformers(mediaId)
   const { data: collections } = useCollections()
   const deleteMedia = useDeleteMedia()
-  const savePoster = useSavePoster()
   const createHistory = useCreateHistory()
   const createInformer = useCreateInformer()
   const addCollectionItem = useAddCollectionItem()
@@ -45,10 +47,6 @@ export default function MediaDetailPage() {
       await deleteMedia.mutateAsync(mediaId)
       navigate('/')
     }
-  }
-
-  const handleSavePoster = async () => {
-    await savePoster.mutateAsync(mediaId)
   }
 
   const handleAddHistory = async () => {
@@ -90,27 +88,36 @@ export default function MediaDetailPage() {
             {entry.is_anime && <Badge variant="secondary">Аниме</Badge>}
             {entry.year_start && <Badge variant="outline">{entry.year_start}{entry.year_end ? `–${entry.year_end}` : ''}</Badge>}
             <Badge>{statusLabels[entry.my_status] || entry.my_status}</Badge>
-            {entry.my_rating && <Badge variant="secondary">{entry.my_rating}/10</Badge>}
+            {entry.my_rating && (
+              <Badge variant="secondary" className={cn('tabular-nums', ratingColor(entry.my_rating))}>
+                {entry.my_rating}/10
+              </Badge>
+            )}
           </div>
           <div className="flex flex-wrap gap-1">
             {entry.genres?.map((g: { id: number; name: string }) => <Badge key={g.id} variant="outline">{g.name}</Badge>)}
           </div>
           {entry.description && <p className="text-sm">{entry.description}</p>}
-          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-            {entry.rating_kp && <span>KP: {entry.rating_kp}</span>}
-            {entry.rating_imdb && <span>IMDb: {entry.rating_imdb}</span>}
-            {entry.rating_tmdb && <span>TMDB: {entry.rating_tmdb}</span>}
-            {entry.rating_shikimori && <span>Shikimori: {entry.rating_shikimori}</span>}
+          <div className="flex flex-wrap gap-3">
+            {entry.rating_kp && <SiteRating site="kp" value={entry.rating_kp} />}
+            {entry.rating_imdb && <SiteRating site="imdb" value={entry.rating_imdb} />}
+            {entry.rating_tmdb && <SiteRating site="tmdb" value={entry.rating_tmdb} />}
+            {entry.rating_shikimori && <SiteRating site="shikimori" value={entry.rating_shikimori} />}
           </div>
-          <div className="flex gap-2">
-            <Link to={`/media/${entry.id}/edit`}><Button variant="outline">Редактировать</Button></Link>
-            <Button variant="destructive" onClick={handleDelete}>Удалить</Button>
-            {entry.poster_url && !entry.poster_local && (
-              <Button variant="outline" onClick={handleSavePoster} disabled={savePoster.isPending}>
-                Сохранить постер локально
-              </Button>
-            )}
-          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Button variant="outline" size="icon" asChild title="Редактировать" aria-label="Редактировать">
+            <Link to={`/media/${entry.id}/edit`}><Pencil /></Link>
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={handleDelete}
+            title="Удалить"
+            aria-label="Удалить"
+          >
+            <Trash2 />
+          </Button>
         </div>
       </div>
 

@@ -168,7 +168,7 @@ class SearchView(APIView):
             )
 
         if source == "shikimori":
-            return self._search_shikimori(query, media_type)
+            return self._search_shikimori(query, media_type, year)
         return self._search_poiskkino(query, media_type, year)
 
     def _search_poiskkino(self, query, media_type, year):
@@ -252,46 +252,71 @@ class SearchView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-    def _search_shikimori(self, query, media_type="series"):
+    def _search_shikimori(self, query, media_type, year):
         headers = {
             "Content-Type": "application/json",
             "User-Agent": settings.SHIKIMORI_APP_NAME,
         }
 
-        kind = "movie" if media_type == "movie" else "tv"
-        params = {"search": query, "limit": 20, "kind": kind}
+        graphql_query = """
+            query ($search: String, $limit: PositiveInt, $kind: AnimeKindString) {
+                animes(search: $search, limit: $limit, kind: $kind) {
+                    id
+                    name
+                    russian
+                    description
+                    kind
+                    status
+                    score
+                    airedOn { year }
+                    releasedOn { year }
+                    poster { originalUrl }
+                    genres { name russian }
+                }
+            }
+        """
+        variables = {
+            "search": query,
+            "limit": 20,
+            "kind": "movie" if media_type == "movie" else "tv",
+        }
         try:
-            resp = requests.get(
-                "https://shikimori.io/api/animes",
+            resp = requests.post(
+                "https://shikimori.io/api/graphql",
                 headers=headers,
-                params=params,
+                json={"query": graphql_query, "variables": variables},
                 timeout=15,
             )
             resp.raise_for_status()
             data = resp.json()
             results = []
-            for item in data:
+            for item in (data.get("data") or {}).get("animes") or []:
                 item_kind = item.get("kind")
                 is_movie = item_kind == "movie"
+                aired_on = item.get("airedOn") or {}
+                released_on = item.get("releasedOn") or {}
                 results.append(
                     {
                         "external_id": item.get("id"),
                         "title": item.get("russian", "") or item.get("name", ""),
                         "original_title": item.get("name", ""),
-                        "year": item.get("aired_on", "")[:4] if item.get("aired_on") else None,
-                        "description": item.get("description", ""),
+                        "year": aired_on.get("year"),
+                        "description": item.get("description") or "",
                         "short_description": "",
-                        "poster_url": (f"https://shikimori.io{item['image']['original']}" if item.get("image", {}).get("original") else ""),
+                        "poster_url": (item.get("poster") or {}).get("originalUrl") or "",
                         "media_type": "movie" if is_movie else "series",
                         "is_anime": True,
                         "rating_shikimori": item.get("score"),
                         "status": item.get("status", ""),
                         "is_series": not is_movie,
                         "external_shikimori_id": str(item.get("id", "")),
-                        "genres": [],
+                        "genres": [
+                            g.get("russian") or g.get("name", "")
+                            for g in (item.get("genres") or [])
+                        ],
                         "countries": [],
-                        "year_start": item.get("aired_on", "")[:4] if item.get("aired_on") else None,
-                        "year_end": item.get("released_on", "")[:4] if item.get("released_on") else None,
+                        "year_start": aired_on.get("year"),
+                        "year_end": released_on.get("year"),
                     }
                 )
             return Response({"results": results, "source": "shikimori"})
