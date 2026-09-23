@@ -3,6 +3,7 @@ import {
   useMediaDetail, useHistory, useInformers, useDeleteMedia,
   useCreateHistory, useCreateInformer, useDeleteInformer, useCollections,
   useAddCollectionItem, useToggleFavorite, useInformersList, useUpdateMedia,
+  useDeleteHistory,
 } from '@/hooks/useApi'
 import type { DownloadStatus, Informer } from '@/types'
 import { Pencil, Trash2, Star, X, Download } from 'lucide-react'
@@ -12,13 +13,13 @@ import { SiteRating, ratingColor } from '@/components/SiteRating'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 const statusLabels: Record<string, string> = {
   plan_to_watch: 'Планирую', watching: 'Смотрю', dropped: 'Бросил', completed: 'Просмотрено',
 }
+const statusOrder = ['plan_to_watch', 'watching', 'dropped', 'completed']
 const mediaTypeLabels: Record<string, string> = {
   movie: 'Фильм', series: 'Сериал',
 }
@@ -49,13 +50,13 @@ export default function MediaDetailPage() {
   const { data: collections } = useCollections()
   const deleteMedia = useDeleteMedia()
   const createHistory = useCreateHistory()
+  const deleteHistory = useDeleteHistory()
   const createInformer = useCreateInformer()
   const deleteInformer = useDeleteInformer()
   const addCollectionItem = useAddCollectionItem()
   const toggleFavorite = useToggleFavorite()
   const updateMedia = useUpdateMedia()
 
-  const [newStatus, setNewStatus] = useState('')
   const [informerName, setInformerName] = useState('')
 
   if (isLoading) return <p className="text-muted-foreground">Загрузка...</p>
@@ -70,13 +71,16 @@ export default function MediaDetailPage() {
     }
   }
 
-  const handleAddHistory = async () => {
-    if (!newStatus) return
+  const handleAddHistory = async (status: string) => {
+    if (status === entry.my_status) return
     await createHistory.mutateAsync({
       id: mediaId,
-      data: { old_status: entry.my_status, new_status: newStatus },
+      data: { old_status: entry.my_status, new_status: status },
     })
-    setNewStatus('')
+  }
+
+  const handleRemoveHistory = async (historyId: number) => {
+    await deleteHistory.mutateAsync({ id: mediaId, historyId })
   }
 
   const trimmedInformer = informerName.trim()
@@ -205,27 +209,35 @@ export default function MediaDetailPage() {
         </TabsList>
 
         <TabsContent value="history" className="space-y-3">
-          <div className="flex gap-2 items-end">
-            <div className="flex-1">
-              <Label>Новый статус</Label>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
+          <div className="flex flex-wrap gap-2">
+            {statusOrder.map((status) => (
+              <Button
+                key={status}
+                variant={entry.my_status === status ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleAddHistory(status)}
               >
-                <option value="">Выбрать...</option>
-                <option value="plan_to_watch">Планирую</option>
-                <option value="watching">Смотрю</option>
-                <option value="dropped">Бросил</option>
-                <option value="completed">Просмотрено</option>
-              </select>
-            </div>
-            <Button onClick={handleAddHistory} disabled={!newStatus}>Добавить</Button>
+                {statusLabels[status]}
+              </Button>
+            ))}
           </div>
           <div className="space-y-1">
             {history?.map((h: { id: number; old_status: string; new_status: string; created_at: string }) => (
-              <p key={h.id} className="text-sm text-muted-foreground">
-                {new Date(h.created_at).toLocaleString('ru-RU')} — {statusLabels[h.old_status] || h.old_status} → {statusLabels[h.new_status] || h.new_status}
+              <p key={h.id} className="text-sm flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {new Date(h.created_at).toLocaleDateString('ru-RU')}
+                </span>
+                <span>
+                  {statusLabels[h.new_status] || h.new_status}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveHistory(h.id)}
+                  aria-label="Удалить запись истории"
+                  className="rounded-full p-0.5 hover:bg-black/10"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </p>
             ))}
           </div>

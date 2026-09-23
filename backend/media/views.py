@@ -144,6 +144,32 @@ class MediaEntryViewSet(ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"history/(?P<history_pk>\d+)",
+    )
+    def delete_history(self, request, pk=None, history_pk=None):
+        entry = self.get_object()
+        history = MediaHistory.objects.filter(
+            media_entry=entry, user=request.user, pk=history_pk
+        ).first()
+        if history is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        history.delete()
+        latest = (
+            MediaHistory.objects.filter(media_entry=entry, user=request.user)
+            .order_by("-created_at")
+            .first()
+        )
+        entry.my_status = (
+            latest.new_status
+            if latest is not None
+            else history.old_status or MediaEntry.MyStatus.PLAN_TO_WATCH
+        )
+        entry.save(update_fields=["my_status", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["get", "post"])
     def informers(self, request, pk=None):
         entry = self.get_object()

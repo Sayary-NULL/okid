@@ -50,6 +50,8 @@ export const mediaApi = {
       api.get(`/media/${id}/history/`).then((r) => r.data),
     create: (id: number, data: { old_status: string; new_status: string }) =>
       api.post(`/media/${id}/history/`, data).then((r) => r.data),
+    remove: (id: number, historyId: number) =>
+      api.delete(`/media/${id}/history/${historyId}/`),
   },
 
   informers: {

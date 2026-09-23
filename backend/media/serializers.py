@@ -41,8 +41,12 @@ class MediaHistoryCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data["user"] = self.context["request"].user
-        validated_data["media_entry"] = self.context["media_entry"]
-        return super().create(validated_data)
+        media_entry = self.context["media_entry"]
+        validated_data["media_entry"] = media_entry
+        instance = super().create(validated_data)
+        media_entry.my_status = instance.new_status
+        media_entry.save(update_fields=["my_status", "updated_at"])
+        return instance
 
 
 class MediaInformerSerializer(serializers.ModelSerializer):

@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.test import APIClient
-from media.models import Genre, Country, MediaEntry
+from media.models import Genre, Country, MediaEntry, MediaHistory
 
 
 @pytest.fixture
@@ -102,6 +102,59 @@ class TestMedia:
         resp2 = auth_client.get(f"/api/media/{entry.id}/history/")
         assert resp2.status_code == status.HTTP_200_OK
         assert len(resp2.data) == 1
+
+    def test_history_updates_media_status(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(
+            user=user, title="History State Test", my_status="plan_to_watch"
+        )
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/history/",
+            {"old_status": "plan_to_watch", "new_status": "completed"},
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        entry.refresh_from_db()
+        assert entry.my_status == "completed"
+
+    def test_history_delete(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="History Delete Test")
+        auth_client.post(
+            f"/api/media/{entry.id}/history/",
+            {"old_status": "plan_to_watch", "new_status": "watching"},
+        )
+        history = MediaHistory.objects.get(media_entry=entry)
+        resp = auth_client.delete(
+            f"/api/media/{entry.id}/history/{history.id}/"
+        )
+        assert resp.status_code == status.HTTP_204_NO_CONTENT
+        resp2 = auth_client.get(f"/api/media/{entry.id}/history/")
+        assert len(resp2.data) == 0
+        entry.refresh_from_db()
+        assert entry.my_status == "plan_to_watch"
+
+    def test_history_delete_rolls_back_latest_status(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="Rollback Test")
+        auth_client.post(
+            f"/api/media/{entry.id}/history/",
+            {"old_status": "plan_to_watch", "new_status": "watching"},
+        )
+        auth_client.post(
+            f"/api/media/{entry.id}/history/",
+            {"old_status": "watching", "new_status": "completed"},
+        )
+        entry.refresh_from_db()
+        assert entry.my_status == "completed"
+        latest = MediaHistory.objects.filter(media_entry=entry).order_by(
+            "-created_at"
+        ).first()
+        resp = auth_client.delete(
+            f"/api/media/{entry.id}/history/{latest.id}/"
+        )
+        assert resp.status_code == status.HTTP_204_NO_CONTENT
+        entry.refresh_from_db()
+        assert entry.my_status == "watching"
 
     def test_informers_create_and_list(self, auth_client):
         user = auth_client.user

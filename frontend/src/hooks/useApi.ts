@@ -95,7 +95,16 @@ export const useCreateHistory = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: { old_status: string; new_status: string } }) =>
       mediaApi.history.create(id, data),
-    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['media', vars.id, 'history'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['media'] }),
+  })
+}
+
+export const useDeleteHistory = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, historyId }: { id: number; historyId: number }) =>
+      mediaApi.history.remove(id, historyId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['media'] }),
   })
 }
 
