@@ -3,14 +3,40 @@ from datetime import timedelta
 from pathlib import Path
 
 import dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 dotenv.load_dotenv(dotenv.find_dotenv())
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "insecure-dev-key-change-in-prod")
-DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
+
+_SETTINGS_MODULE = os.getenv("DJANGO_SETTINGS_MODULE", "")
+_IS_DEV_OR_TEST = (
+    DEBUG or "test" in _SETTINGS_MODULE or "dev" in _SETTINGS_MODULE
+)
+
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if _IS_DEV_OR_TEST:
+        SECRET_KEY = "insecure-dev-key-change-in-prod"
+    else:
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY must be set in production."
+        )
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
+if not ALLOWED_HOSTS:
+    if _IS_DEV_OR_TEST:
+        ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+    else:
+        raise ImproperlyConfigured(
+            "ALLOWED_HOSTS must be set in production."
+        )
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -76,9 +102,9 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-MEDIA_URL = "media/"
+MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "mediafiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -92,6 +118,14 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 24,
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("THROTTLE_ANON", "120/min"),
+        "login": os.getenv("THROTTLE_LOGIN", "10/min"),
+        "register": os.getenv("THROTTLE_REGISTER", "5/hour"),
+    },
 }
 
 SIMPLE_JWT = {
@@ -100,10 +134,34 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-CORS_ALLOWED_ORIGINS = os.getenv(
-    "CORS_ALLOWED_ORIGINS", "http://localhost:5173"
-).split(",")
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:5173"
+    ).split(",")
+    if origin.strip()
+]
 CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 
 POISKKINO_API_KEY = os.getenv("POISKKINO_API_KEY", "")
 SHIKIMORI_APP_NAME = os.getenv("SHIKIMORI_APP_NAME", "Sayary-SFL")
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+HTTPS_ENABLED = os.getenv("DJANGO_HTTPS", "False").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+if not DEBUG and HTTPS_ENABLED:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True

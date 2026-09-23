@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+*.sqlite3
+
+**/node_modules
+**/dist
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+
+backend/
+readme.md

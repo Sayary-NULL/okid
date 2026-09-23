@@ -75,9 +75,9 @@ class MediaInformerCreateSerializer(serializers.Serializer):
         informer = validated_data.get("informer")
         if informer is None:
             name = validated_data["informer_name"].strip()
-            informer, _ = Informer.objects.get_or_create(
-                name__iexact=name, defaults={"name": name}
-            )
+            informer = Informer.objects.filter(name__iexact=name).first()
+            if informer is None:
+                informer, _ = Informer.objects.get_or_create(name=name)
         return MediaInformer.objects.create(
             user=self.context["request"].user,
             media_entry=self.context["media_entry"],
@@ -157,10 +157,16 @@ class MediaEntryWriteSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         if genres_data is not None:
-            self._set_m2m(instance, genres_data, countries_data or [])
+            self._set_genres(instance, genres_data)
+        if countries_data is not None:
+            self._set_countries(instance, countries_data)
         return instance
 
     def _set_m2m(self, entry, genres_data, countries_data):
+        self._set_genres(entry, genres_data)
+        self._set_countries(entry, countries_data)
+
+    def _set_genres(self, entry, genres_data):
         genres = []
         for name in genres_data:
             genre, _ = Genre.objects.get_or_create(
@@ -170,6 +176,7 @@ class MediaEntryWriteSerializer(serializers.ModelSerializer):
             genres.append(genre)
         entry.genres.set(genres)
 
+    def _set_countries(self, entry, countries_data):
         countries = []
         for name in countries_data:
             country, _ = Country.objects.get_or_create(name=name)

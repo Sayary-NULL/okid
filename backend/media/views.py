@@ -1,12 +1,47 @@
+import ipaddress
+import logging
+import socket
+from urllib.parse import urlparse
+
 import requests
 from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin, ListModelMixin
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet, ReadOnlyModelViewSet
+
+logger = logging.getLogger(__name__)
+
+MAX_POSTER_BYTES = 10 * 1024 * 1024
+POSTER_CHUNK_SIZE = 64 * 1024
+
+
+def _is_safe_poster_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    try:
+        addresses = socket.getaddrinfo(parsed.hostname, None)
+    except socket.gaierror:
+        return False
+    for address in addresses:
+        try:
+            ip = ipaddress.ip_address(address[4][0])
+        except ValueError:
+            return False
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            return False
+    return True
 
 from media.models import (
     Country,
@@ -33,14 +68,14 @@ from media.serializers import (
 class GenreViewSet(ReadOnlyModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
 
 class CountryViewSet(ReadOnlyModelViewSet):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
 
@@ -110,17 +145,46 @@ class MediaEntryViewSet(ModelViewSet):
                 {"error": "No poster URL to download."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if not _is_safe_poster_url(entry.poster_url):
+            return Response(
+                {"error": "Poster URL is not allowed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from django.core.files.base import ContentFile
+
         try:
-            resp = requests.get(entry.poster_url, timeout=10)
-            resp.raise_for_status()
-            from django.core.files.base import ContentFile
-            ext = entry.poster_url.rsplit(".", 1)[-1].split("?")[0]
-            if len(ext) > 5 or "/" in ext:
+            with requests.get(
+                entry.poster_url, timeout=10, stream=True, allow_redirects=False
+            ) as resp:
+                resp.raise_for_status()
+                content_type = resp.headers.get("Content-Type", "")
+                if content_type and not content_type.startswith("image/"):
+                    return Response(
+                        {"error": "URL does not point to an image."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                chunks = []
+                size = 0
+                for chunk in resp.iter_content(POSTER_CHUNK_SIZE):
+                    size += len(chunk)
+                    if size > MAX_POSTER_BYTES:
+                        return Response(
+                            {"error": "Poster is too large."},
+                            status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        )
+                    chunks.append(chunk)
+                content = b"".join(chunks)
+
+            ext = entry.poster_url.rsplit(".", 1)[-1].split("?")[0].lower()
+            if len(ext) > 5 or "/" in ext or not ext.isalnum():
                 ext = "jpg"
             filename = f"poster_{entry.id}.{ext}"
-            entry.poster_local.save(filename, ContentFile(resp.content), save=True)
+            entry.poster_local.save(filename, ContentFile(content), save=True)
             return Response({"poster_local": entry.poster_local.url})
         except requests.RequestException:
+            logger.warning(
+                "Failed to download poster for media %s", entry.id, exc_info=True
+            )
             return Response(
                 {"error": "Failed to download poster."},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -213,7 +277,7 @@ class InformerViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):
 
 
 class SearchView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         query = request.data.get("query", "")
@@ -305,8 +369,8 @@ class SearchView(APIView):
                     }
                 )
             return Response({"results": results, "source": "poiskkino"})
-        except requests.RequestException as error:
-            print(f"{error}")
+        except requests.RequestException:
+            logger.warning("PoiskKino search failed", exc_info=True)
             return Response(
                 {"error": "Failed to search PoiskKino."},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -380,8 +444,8 @@ class SearchView(APIView):
                     }
                 )
             return Response({"results": results, "source": "shikimori"})
-        except requests.RequestException as error:
-            print(f"{error}")
+        except requests.RequestException:
+            logger.warning("Shikimori search failed", exc_info=True)
             return Response(
                 {"error": "Failed to search Shikimori."},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -390,43 +454,16 @@ class SearchView(APIView):
 
 class ImportView(APIView):
     def post(self, request):
-        try:
-            data = request.data
-            media_type = data.get("media_type", "movie")
-            print(media_type)
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(
+            request.data
+        )
 
-            genres_data = data.pop("genres", [])
-            countries_data = data.pop("countries", [])
-
-            data["user"] = request.user
-            serializer = MediaEntryWriteSerializer(
-                data=data, context={"request": request}
-            )
-            serializer.is_valid(raise_exception=True)
-
-            genres = []
-            for name in genres_data:
-                genre, _ = Genre.objects.get_or_create(
-                    slug=name.lower().replace(" ", "-"),
-                    defaults={"name": name},
-                )
-                genres.append(genre)
-
-            countries = []
-            for name in countries_data:
-                country, _ = Country.objects.get_or_create(name=name)
-                countries.append(country)
-
-            entry = serializer.save()
-            entry.genres.set(genres)
-            entry.countries.set(countries)
-            return Response(
-                MediaEntryDetailSerializer(entry).data,
-                status=status.HTTP_201_CREATED,
-            )
-        except Exception as error:
-            print(f"{error}")
-            return Response(
-                {"error": "Failed to add media."},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+        serializer = MediaEntryWriteSerializer(
+            data=data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        entry = serializer.save()
+        return Response(
+            MediaEntryDetailSerializer(entry).data,
+            status=status.HTTP_201_CREATED,
+        )

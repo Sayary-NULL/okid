@@ -21,6 +21,9 @@ services:
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_HTTPS: ${DJANGO_HTTPS:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
       POSTGRES_DB: ${POSTGRES_DB:-okid}
       POSTGRES_USER: ${POSTGRES_USER:-okid}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -34,6 +37,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        VITE_API_URL: /api
+    depends_on:
+      - backend
+    volumes:
+      - staticfiles:/var/www/static:ro
+      - mediafiles:/var/www/media:ro
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8080}:80"
     restart: unless-stopped
 
 volumes:
