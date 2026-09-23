@@ -9,7 +9,8 @@ import type { DownloadStatus, Informer } from '@/types'
 import { Pencil, Trash2, Star, X, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { SiteRating, ratingColor } from '@/components/SiteRating'
+import { SiteRating } from '@/components/SiteRating'
+import { UserRating } from '@/components/UserRating'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
@@ -134,12 +135,12 @@ export default function MediaDetailPage() {
             {entry.is_anime && <Badge variant="secondary">Аниме</Badge>}
             {entry.year_start && <Badge variant="outline">{entry.year_start}{entry.year_end ? `–${entry.year_end}` : ''}</Badge>}
             <Badge>{statusLabels[entry.my_status] || entry.my_status}</Badge>
-            {entry.my_rating && (
-              <Badge variant="secondary" className={cn('tabular-nums', ratingColor(entry.my_rating))}>
-                {entry.my_rating}/10
-              </Badge>
-            )}
           </div>
+          <UserRating
+            value={entry.my_rating}
+            disabled={updateMedia.isPending}
+            onRate={(rating) => updateMedia.mutate({ id: mediaId, data: { my_rating: rating } })}
+          />
           <div className="flex flex-wrap gap-1">
             {entry.genres?.map((g: { id: number; name: string }) => <Badge key={g.id} variant="outline">{g.name}</Badge>)}
           </div>

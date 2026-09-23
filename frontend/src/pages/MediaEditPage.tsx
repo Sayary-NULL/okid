@@ -23,10 +23,6 @@ export default function MediaEditPage() {
   const [description, setDescription] = useState('')
   const [yearStart, setYearStart] = useState('')
   const [yearEnd, setYearEnd] = useState('')
-  const [myStatus, setMyStatus] = useState('plan_to_watch')
-  const [downloadStatus, setDownloadStatus] = useState('none')
-  const [myRating, setMyRating] = useState('')
-  const [isFavorite, setIsFavorite] = useState(false)
   const [isAnime, setIsAnime] = useState(false)
 
   useEffect(() => {
@@ -37,10 +33,6 @@ export default function MediaEditPage() {
       setDescription(entry.description || '')
       setYearStart(entry.year_start?.toString() || '')
       setYearEnd(entry.year_end?.toString() || '')
-      setMyStatus(entry.my_status)
-      setDownloadStatus(entry.download_status)
-      setMyRating(entry.my_rating?.toString() || '')
-      setIsFavorite(entry.is_favorite)
       setIsAnime(entry.is_anime)
     }
   }, [entry])
@@ -60,13 +52,13 @@ export default function MediaEditPage() {
         description,
         year_start: yearStart ? Number(yearStart) : null,
         year_end: yearEnd ? Number(yearEnd) : null,
-        my_status: myStatus,
-        download_status: downloadStatus,
-        my_rating: myRating ? Number(myRating) : null,
-        is_favorite: isFavorite,
         is_anime: isAnime,
       },
     })
+    navigate(`/media/${mediaId}`)
+  }
+
+  const handleCancel = () => {
     navigate(`/media/${mediaId}`)
   }
 
@@ -84,29 +76,17 @@ export default function MediaEditPage() {
           <Label>Оригинальное название</Label>
           <Input value={originalTitle} onChange={(e) => setOriginalTitle(e.target.value)} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Тип</Label>
-            <Select value={mediaType} onValueChange={setMediaType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="movie">Фильм</SelectItem>
-                <SelectItem value="series">Сериал</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Мой статус</Label>
-            <Select value={myStatus} onValueChange={setMyStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="plan_to_watch">Планирую</SelectItem>
-                <SelectItem value="watching">Смотрю</SelectItem>
-                <SelectItem value="dropped">Бросил</SelectItem>
-                <SelectItem value="completed">Просмотрено</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label>Тип</Label>
+          <Select value={mediaType} onValueChange={(v) => { if (v) setMediaType(v) }}>
+            <SelectTrigger>
+              <SelectValue>{mediaType === 'series' ? 'Сериал' : 'Фильм'}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="movie">Фильм</SelectItem>
+              <SelectItem value="series">Сериал</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -118,30 +98,9 @@ export default function MediaEditPage() {
             <Input type="number" value={yearEnd} onChange={(e) => setYearEnd(e.target.value)} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Статус загрузки</Label>
-            <Select value={downloadStatus} onValueChange={setDownloadStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Нет</SelectItem>
-                <SelectItem value="need_download">Нужно скачать</SelectItem>
-                <SelectItem value="downloaded">Скачано</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Мой рейтинг</Label>
-            <Input type="number" min={1} max={10} value={myRating} onChange={(e) => setMyRating(e.target.value)} />
-          </div>
-        </div>
         <div className="space-y-2">
           <Label>Описание</Label>
           <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
-        </div>
-        <div className="flex items-center gap-2">
-          <input type="checkbox" id="is_favorite" checked={isFavorite} onChange={(e) => setIsFavorite(e.target.checked)} />
-          <Label htmlFor="is_favorite">Избранное</Label>
         </div>
         <div className="flex items-center gap-2">
           <input type="checkbox" id="is_anime" checked={isAnime} onChange={(e) => setIsAnime(e.target.checked)} />
@@ -158,7 +117,12 @@ export default function MediaEditPage() {
             Сохранить постер локально
           </Button>
         )}
-        <Button type="submit" className="w-full">Сохранить</Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>
+            Отмена
+          </Button>
+          <Button type="submit" className="flex-1">Сохранить</Button>
+        </div>
       </form>
     </div>
   )
