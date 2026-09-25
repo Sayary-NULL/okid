@@ -7,6 +7,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - sayary-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-okid} -d ${POSTGRES_DB:-okid}"]
@@ -37,6 +39,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - sayary-network
     restart: unless-stopped
 
   frontend:
@@ -51,10 +55,17 @@ services:
       - staticfiles:/var/www/static:ro
       - mediafiles:/var/www/media:ro
     ports:
-      - "127.0.0.1:${HTTP_PORT:-8080}:80"
+      - "${HTTP_PORT:-8080}:80"
+    networks:
+      - sayary-network
     restart: unless-stopped
 
 volumes:
   pgdata:
   mediafiles:
   staticfiles:
+
+networks:
+  sayary-network:
+    name: sayary-network
+    external: true
