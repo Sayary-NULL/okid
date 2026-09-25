@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 
 MAX_POSTER_BYTES = 10 * 1024 * 1024
 POSTER_CHUNK_SIZE = 64 * 1024
+ALLOWED_POSTER_TYPES = (
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+)
 
 
 def _is_safe_poster_url(url):
@@ -192,6 +198,42 @@ class MediaEntryViewSet(ModelViewSet):
                 {"error": "Failed to download poster."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+    @action(detail=True, methods=["post", "delete"], url_path="poster")
+    def poster(self, request, pk=None):
+        entry = self.get_object()
+        if request.method == "DELETE":
+            if entry.poster_local:
+                entry.poster_local.delete(save=False)
+            entry.poster_local = None
+            entry.save(update_fields=["poster_local", "updated_at"])
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        upload = request.FILES.get("poster")
+        if upload is None:
+            return Response(
+                {"error": "No poster file provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if upload.size > MAX_POSTER_BYTES:
+            return Response(
+                {"error": "Poster is too large."},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+        if upload.content_type not in ALLOWED_POSTER_TYPES:
+            return Response(
+                {"error": "Unsupported image type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if entry.poster_local:
+            entry.poster_local.delete(save=False)
+        entry.poster_local = upload
+        entry.save(update_fields=["poster_local", "updated_at"])
+        return Response(
+            MediaEntryDetailSerializer(
+                entry, context=self.get_serializer_context()
+            ).data
+        )
 
     @action(detail=True, methods=["get", "post"])
     def history(self, request, pk=None):

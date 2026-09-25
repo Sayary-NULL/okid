@@ -91,6 +91,23 @@ export const useSavePoster = () => {
   })
 }
 
+export const useSetMediaPoster = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, file }: { id: number; file: File }) =>
+      mediaApi.setPoster(id, file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['media'] }),
+  })
+}
+
+export const useRemoveMediaPoster = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => mediaApi.removePoster(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['media'] }),
+  })
+}
+
 export const useHistory = (mediaId: number) =>
   useQuery({
     queryKey: ['media', mediaId, 'history'],

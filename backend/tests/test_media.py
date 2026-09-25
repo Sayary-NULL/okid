@@ -1,8 +1,15 @@
 import pytest
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.test import APIClient
 from media.models import Genre, Country, MediaEntry, MediaHistory
+
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 @pytest.fixture
@@ -120,6 +127,53 @@ class TestMedia:
         entry = MediaEntry.objects.create(user=user, title="Delete Me")
         resp = auth_client.delete(f"/api/media/{entry.id}/")
         assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_update_poster_url(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="Poster URL")
+        resp = auth_client.patch(
+            f"/api/media/{entry.id}/",
+            {"poster_url": "https://example.com/poster.jpg"},
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.poster_url == "https://example.com/poster.jpg"
+
+    def test_upload_and_remove_poster(self, auth_client, tmp_path, settings):
+        settings.MEDIA_ROOT = tmp_path
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="Upload Poster")
+        upload = SimpleUploadedFile(
+            "poster.png", PNG_BYTES, content_type="image/png"
+        )
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/poster/",
+            {"poster": upload},
+            format="multipart",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["poster_local"]
+        entry.refresh_from_db()
+        assert entry.poster_local
+
+        removed = auth_client.delete(f"/api/media/{entry.id}/poster/")
+        assert removed.status_code == status.HTTP_204_NO_CONTENT
+        entry.refresh_from_db()
+        assert not entry.poster_local
+
+    def test_reject_non_image_media_poster(self, auth_client, tmp_path, settings):
+        settings.MEDIA_ROOT = tmp_path
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="Bad Poster")
+        upload = SimpleUploadedFile(
+            "note.txt", b"hello", content_type="text/plain"
+        )
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/poster/",
+            {"poster": upload},
+            format="multipart",
+        )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_history_create_and_list(self, auth_client):
         user = auth_client.user

@@ -47,6 +47,19 @@ export const mediaApi = {
   savePoster: (id: number) =>
     api.post(`/media/${id}/save-poster/`).then((r) => r.data),
 
+  setPoster: (id: number, file: File) => {
+    const form = new FormData()
+    form.append('poster', file)
+    return api
+      .post(`/media/${id}/poster/`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data)
+  },
+
+  removePoster: (id: number) =>
+    api.delete(`/media/${id}/poster/`),
+
   history: {
     list: (id: number) =>
       api.get(`/media/${id}/history/`).then((r) => r.data),

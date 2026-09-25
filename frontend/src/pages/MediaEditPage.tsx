@@ -1,5 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useMediaDetail, useUpdateMedia, useSavePoster } from '@/hooks/useApi'
+import {
+  useMediaDetail, useUpdateMedia, useSavePoster,
+  useSetMediaPoster, useRemoveMediaPoster,
+} from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function MediaEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,6 +19,9 @@ export default function MediaEditPage() {
   const { data: entry, isLoading } = useMediaDetail(mediaId)
   const updateMedia = useUpdateMedia()
   const savePoster = useSavePoster()
+  const setPoster = useSetMediaPoster()
+  const removePoster = useRemoveMediaPoster()
+  const posterInputRef = useRef<HTMLInputElement>(null)
 
   const [title, setTitle] = useState('')
   const [originalTitle, setOriginalTitle] = useState('')
@@ -24,6 +30,7 @@ export default function MediaEditPage() {
   const [yearStart, setYearStart] = useState('')
   const [yearEnd, setYearEnd] = useState('')
   const [isAnime, setIsAnime] = useState(false)
+  const [posterUrl, setPosterUrl] = useState('')
 
   useEffect(() => {
     if (entry) {
@@ -34,11 +41,24 @@ export default function MediaEditPage() {
       setYearStart(entry.year_start?.toString() || '')
       setYearEnd(entry.year_end?.toString() || '')
       setIsAnime(entry.is_anime)
+      setPosterUrl(entry.poster_url || '')
     }
   }, [entry])
 
   const handleSavePoster = async () => {
     await savePoster.mutateAsync(mediaId)
+  }
+
+  const handlePosterChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      await setPoster.mutateAsync({ id: mediaId, file })
+    }
+    e.target.value = ''
+  }
+
+  const handleRemovePoster = async () => {
+    await removePoster.mutateAsync(mediaId)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +73,7 @@ export default function MediaEditPage() {
         year_start: yearStart ? Number(yearStart) : null,
         year_end: yearEnd ? Number(yearEnd) : null,
         is_anime: isAnime,
+        poster_url: posterUrl,
       },
     })
     navigate(`/media/${mediaId}`)
@@ -68,6 +89,70 @@ export default function MediaEditPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Редактировать дело</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2 rounded-lg border p-4">
+          <Label htmlFor="poster_url">Ссылка на постер</Label>
+          <Input
+            id="poster_url"
+            value={posterUrl}
+            onChange={(e) => setPosterUrl(e.target.value)}
+            placeholder="https://..."
+          />
+          <div className="flex items-start gap-4">
+            <div className="w-32 flex-shrink-0">
+              {entry?.poster_local || posterUrl ? (
+                <img
+                  src={entry?.poster_local || posterUrl}
+                  alt=""
+                  className="w-full rounded-lg shadow"
+                />
+              ) : (
+                <div className="aspect-[2/3] bg-muted rounded-lg flex items-center justify-center text-muted-foreground text-xs">
+                  Нет постера
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col items-start gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => posterInputRef.current?.click()}
+                disabled={setPoster.isPending}
+              >
+                {entry?.poster_local ? 'Заменить своим постером' : 'Загрузить свой постер'}
+              </Button>
+              {entry?.poster_local && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleRemovePoster}
+                  disabled={removePoster.isPending}
+                >
+                  Удалить локальный постер
+                </Button>
+              )}
+              {entry?.poster_url && !entry.poster_local && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleSavePoster}
+                  disabled={savePoster.isPending}
+                >
+                  Сохранить постер локально
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Загруженный постер имеет приоритет над ссылкой
+              </p>
+            </div>
+            <input
+              ref={posterInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePosterChange}
+            />
+          </div>
+        </div>
         <div className="space-y-2">
           <Label>Название</Label>
           <Input required value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -106,17 +191,6 @@ export default function MediaEditPage() {
           <input type="checkbox" id="is_anime" checked={isAnime} onChange={(e) => setIsAnime(e.target.checked)} />
           <Label htmlFor="is_anime">Аниме</Label>
         </div>
-        {entry?.poster_url && !entry.poster_local && (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleSavePoster}
-            disabled={savePoster.isPending}
-          >
-            Сохранить постер локально
-          </Button>
-        )}
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>
             Отмена
