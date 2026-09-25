@@ -293,6 +293,69 @@
 ## Архитектура
 приложение будет развернуто в докере на личном сервере truenas, данные хранятся в pg в отдельном контейнере
 
+## Развертывание
+Стек поднимается через Docker Compose и состоит из трех сервисов:
+- `db` — PostgreSQL 16, данные в volume `pgdata`;
+- `backend` — Django + gunicorn, миграции и `collectstatic` выполняются при старте;
+- `frontend` — nginx с собранным SPA, отдает статику и проксирует `/api`, `/admin`, `/static`, `/media` на backend.
+
+Публикуется только frontend: `127.0.0.1:${HTTP_PORT}` (по умолчанию `8080`). Перед стеком ставится внешний nginx хоста, который терминирует TLS и проксирует трафик на этот порт.
+
+### Требования
+- Docker и Docker Compose v2;
+- внешний nginx на хосте и домен/поддомен для TLS.
+
+### 1. Получить код
+```sh
+git clone <repo-url> OKID
+cd OKID
+```
+
+### 2. Настроить окружение
+Создать `.env` из примера и заполнить значения:
+```sh
+cp .env.example .env
+```
+Обязательные переменные:
+- `DJANGO_SECRET_KEY` — сгенерировать: `python -c "import secrets; print(secrets.token_urlsafe(64))"`;
+- `ALLOWED_HOSTS` — публичный домен (например `okid.example.com`);
+- `CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` — публичный URL с схемой (`https://okid.example.com`);
+- `POSTGRES_PASSWORD` — пароль к БД;
+- `POISKKINO_API_KEY`, `SHIKIMORI_APP_NAME` — ключи внешних API;
+- `HTTP_PORT` — локальный порт публикации, не должен пересекаться с 80/443 основного nginx;
+- `DJANGO_HTTPS=True` — при работе по HTTPS включает secure-cookies, HSTS и редирект на HTTPS.
+
+### 3. Собрать и запустить
+```sh
+docker compose up -d --build
+```
+Миграции и сбор статики выполняются автоматически при старте backend (`backend/docker-entrypoint.sh`). Проверить состояние и логи:
+```sh
+docker compose ps
+docker compose logs -f backend
+```
+
+### 4. Создать администратора
+```sh
+docker compose exec backend python manage.py createsuperuser
+```
+
+### 5. Настроить внешний nginx и TLS
+Взять конфиг `docker/nginx.conf`, заменить `okid.example.com` и пути к сертификатам на свои, положить в `/etc/nginx/sites-enabled/okid.conf` (или `/etc/nginx/conf.d/okid.conf`) и применить:
+```sh
+nginx -t && systemctl reload nginx
+```
+Для выпуска сертификата удобно использовать certbot в режиме webroot: в конфиге уже есть `location /.well-known/acme-challenge/`.
+```sh
+certbot certonly --webroot -w /var/www/html -d okid.example.com
+```
+
+### Обновление
+```sh
+git pull
+docker compose up -d --build
+```
+
 ## Лицензия
 [MIT](LICENSE)
 
