@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 import requests
 from django.conf import settings
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin, ListModelMixin
@@ -81,7 +82,7 @@ class CountryViewSet(ReadOnlyModelViewSet):
 
 class MediaEntryViewSet(ModelViewSet):
     def get_queryset(self):
-        return MediaEntry.objects.filter(user=self.request.user)
+        return MediaEntry.objects.filter(user=self.request.user).order_by("title")
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -123,7 +124,9 @@ class MediaEntryViewSet(ModelViewSet):
         if informer:
             queryset = queryset.filter(informers__informer_id=informer).distinct()
         if q:
-            queryset = queryset.filter(title__icontains=q)
+            queryset = queryset.filter(
+                Q(title__icontains=q) | Q(original_title__icontains=q)
+            )
         if is_favorite:
             queryset = queryset.filter(is_favorite=True)
         if is_anime:

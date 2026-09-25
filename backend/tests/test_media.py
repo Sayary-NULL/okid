@@ -50,6 +50,16 @@ class TestMedia:
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["count"] >= 1
 
+    def test_list_ordered_by_title(self, auth_client):
+        user = auth_client.user
+        MediaEntry.objects.create(user=user, title="Второй")
+        MediaEntry.objects.create(user=user, title="Первый")
+        MediaEntry.objects.create(user=user, title="Третий")
+        resp = auth_client.get("/api/media/")
+        assert resp.status_code == status.HTTP_200_OK
+        titles = [item["title"] for item in resp.data["results"]]
+        assert titles == sorted(titles)
+
     def test_filter_by_type(self, auth_client):
         user = auth_client.user
         MediaEntry.objects.create(user=user, title="A", media_type="movie")
@@ -57,6 +67,26 @@ class TestMedia:
         resp = auth_client.get("/api/media/?type=series")
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["count"] == 1
+
+    def test_filter_by_title(self, auth_client):
+        user = auth_client.user
+        MediaEntry.objects.create(user=user, title="Человек паук")
+        MediaEntry.objects.create(user=user, title="Другой фильм")
+        resp = auth_client.get("/api/media/?q=паук")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["count"] == 1
+        assert resp.data["results"][0]["title"] == "Человек паук"
+
+    def test_filter_by_original_title(self, auth_client):
+        user = auth_client.user
+        MediaEntry.objects.create(
+            user=user, title="Человек паук", original_title="Spider man"
+        )
+        MediaEntry.objects.create(user=user, title="Другой фильм")
+        resp = auth_client.get("/api/media/?q=spider")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["count"] == 1
+        assert resp.data["results"][0]["original_title"] == "Spider man"
 
     def test_filter_by_is_anime(self, auth_client):
         user = auth_client.user
