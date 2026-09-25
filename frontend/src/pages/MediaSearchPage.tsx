@@ -15,7 +15,7 @@ export default function MediaSearchPage() {
   const search = useSearch()
   const importMedia = useImport()
   const [query, setQuery] = useState('')
-  const [type, setType] = useState('movie')
+  const [type, setType] = useState('all')
   const [source, setSource] = useState<'poiskkino' | 'shikimori'>('poiskkino')
   const [year, setYear] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
@@ -40,7 +40,7 @@ export default function MediaSearchPage() {
     const entry = await importMedia.mutateAsync({
       title: result.title,
       original_title: result.original_title || '',
-      media_type: result.media_type || type,
+      media_type: result.media_type || (type === 'all' ? 'movie' : type),
       is_anime: result.is_anime ?? (source === 'shikimori'),
       year_start: result.year_start || result.year,
       year_end: result.year_end,
@@ -82,6 +82,7 @@ export default function MediaSearchPage() {
             <Select value={type} onValueChange={setType}>
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Все</SelectItem>
                 <SelectItem value="movie">Фильм</SelectItem>
                 <SelectItem value="series">Сериал</SelectItem>
               </SelectContent>

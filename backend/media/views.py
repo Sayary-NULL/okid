@@ -276,6 +276,34 @@ class InformerViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):
     pagination_class = None
 
 
+def _as_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _poiskkino_matches_year(item, year):
+    if item.get("year") == year:
+        return True
+    for span in item.get("releaseYears") or []:
+        start = span.get("start")
+        end = span.get("end") or start
+        if start is not None and end is not None and start <= year <= end:
+            return True
+    return False
+
+
+def _shikimori_matches_year(item, year):
+    start = (item.get("airedOn") or {}).get("year")
+    end = (item.get("releasedOn") or {}).get("year") or start
+    if start is None:
+        return False
+    if start == year:
+        return True
+    return start <= year <= (end if end is not None else start)
+
+
 class SearchView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -302,13 +330,7 @@ class SearchView(APIView):
                 {"error": "PoiskKino API key is not configured."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-        params = {"query": query, "field": "name", "limit": 20}
-        if year:
-            params["year"] = year
-        if media_type == "series":
-            params["type"] = "tv-series"
-        elif media_type == "movie":
-            params["type"] = "movie"
+        params = {"query": query, "field": "name", "limit": 250}
 
         try:
             resp = requests.get(
@@ -328,7 +350,25 @@ class SearchView(APIView):
                 "animated-series": "series", 
                 "tv-show": "series"
             }
-            for item in data.get("docs", []):
+            series_types = {
+                "tv-series",
+                "cartoon",
+                "anime",
+                "animated-series",
+                "tv-show",
+            }
+            docs = data.get("docs", [])
+            if media_type == "movie":
+                docs = [item for item in docs if item.get("type") == "movie"]
+            elif media_type == "series":
+                docs = [
+                    item for item in docs if item.get("type") in series_types
+                ]
+            if year and (year_int := _as_int(year)) is not None:
+                docs = [
+                    item for item in docs if _poiskkino_matches_year(item, year_int)
+                ]
+            for item in docs:
                 results.append(
                     {
                         "external_id": item.get("id"),
@@ -339,7 +379,9 @@ class SearchView(APIView):
                         "description": item.get("description", ""),
                         "short_description": item.get("shortDescription", ""),
                         "poster_url": (item.get("poster") or {}).get("url", ""),
-                        "media_type": media_type_convert[item.get("type", media_type)],
+                        "media_type": media_type_convert.get(
+                            item.get("type", media_type), "series"
+                        ),
                         "is_anime": item.get("type") == "anime",
                         "rating_kp": (item.get("rating") or {}).get("kp"),
                         "rating_imdb": (item.get("rating") or {}).get("imdb"),
@@ -402,7 +444,7 @@ class SearchView(APIView):
         variables = {
             "search": query,
             "limit": 20,
-            "kind": "movie" if media_type == "movie" else "tv",
+            "kind": {"movie": "movie", "series": "tv"}.get(media_type),
         }
         try:
             resp = requests.post(
@@ -413,8 +455,15 @@ class SearchView(APIView):
             )
             resp.raise_for_status()
             data = resp.json()
+            animes = (data.get("data") or {}).get("animes") or []
+            if year and (year_int := _as_int(year)) is not None:
+                animes = [
+                    item
+                    for item in animes
+                    if _shikimori_matches_year(item, year_int)
+                ]
             results = []
-            for item in (data.get("data") or {}).get("animes") or []:
+            for item in animes:
                 item_kind = item.get("kind")
                 is_movie = item_kind == "movie"
                 aired_on = item.get("airedOn") or {}
