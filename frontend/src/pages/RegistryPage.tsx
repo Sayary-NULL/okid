@@ -4,7 +4,7 @@ import { useMediaList, useGenres, useInformersList, useToggleFavorite } from '@/
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Star, Download, Plus, X } from 'lucide-react'
+import { Star, Download, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -105,6 +105,72 @@ function MediaCard({ entry }: { entry: MediaEntry }) {
   )
 }
 
+function pageWindow(current: number, total: number): (number | '…')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const wanted = new Set([1, total, current - 1, current, current + 1])
+  const sorted = [...wanted]
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b)
+  const out: (number | '…')[] = []
+  let prev = 0
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push('…')
+    out.push(p)
+    prev = p
+  }
+  return out
+}
+
+function Pagination({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number
+  totalPages: number
+  onChange: (page: number) => void
+}) {
+  if (totalPages <= 1) return null
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={page <= 1}
+        onClick={() => onChange(page - 1)}
+      >
+        <ChevronLeft /> Назад
+      </Button>
+      {pageWindow(page, totalPages).map((p, i) =>
+        p === '…' ? (
+          <span key={`gap-${i}`} className="px-2 text-muted-foreground">
+            …
+          </span>
+        ) : (
+          <Button
+            key={p}
+            variant={p === page ? 'default' : 'outline'}
+            size="icon"
+            className="h-8 w-8"
+            aria-current={p === page ? 'page' : undefined}
+            onClick={() => onChange(p)}
+          >
+            {p}
+          </Button>
+        ),
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={page >= totalPages}
+        onClick={() => onChange(page + 1)}
+      >
+        Вперёд <ChevronRight />
+      </Button>
+    </div>
+  )
+}
+
 export default function RegistryPage() {
   const [q, setQ] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -115,6 +181,7 @@ export default function RegistryPage() {
   const [informer, setInformer] = useState('')
   const [isFavorite, setIsFavorite] = useState(false)
   const [isAnime, setIsAnime] = useState(false)
+  const [page, setPage] = useState(1)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -145,6 +212,7 @@ export default function RegistryPage() {
   if (informer) params.informer = informer
   if (isFavorite) params.is_favorite = 'true'
   if (isAnime) params.is_anime = 'true'
+  if (page > 1) params.page = String(page)
 
   const { data, isLoading } = useMediaList(params)
   const { data: genres } = useGenres()
@@ -152,6 +220,7 @@ export default function RegistryPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    setPage(1)
     setSearchQuery(q)
   }
 
@@ -165,6 +234,7 @@ export default function RegistryPage() {
     setInformer('')
     setIsFavorite(false)
     setIsAnime(false)
+    setPage(1)
   }
 
   const hasFilters = Boolean(
@@ -219,7 +289,7 @@ export default function RegistryPage() {
           />
           <Button type="submit">Поиск</Button>
         </form>
-        <Select value={type} onValueChange={(v) => setType(v === 'all' ? '' : v)}>
+        <Select value={type} onValueChange={(v) => { setType(v === 'all' ? '' : v); setPage(1) }}>
           <SelectTrigger className={cn('w-28', type && 'border-primary')}><SelectValue placeholder="Тип" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все</SelectItem>
@@ -227,7 +297,7 @@ export default function RegistryPage() {
             <SelectItem value="series">Сериалы</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={myStatus} onValueChange={(v) => setMyStatus(v === 'all' ? '' : v)}>
+        <Select value={myStatus} onValueChange={(v) => { setMyStatus(v === 'all' ? '' : v); setPage(1) }}>
           <SelectTrigger className={cn('w-32', myStatus && 'border-primary')}><SelectValue placeholder="Статус" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все</SelectItem>
@@ -237,7 +307,7 @@ export default function RegistryPage() {
             <SelectItem value="completed">Просмотрено</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={downloadStatus} onValueChange={(v) => setDownloadStatus(v === 'all' ? '' : v)}>
+        <Select value={downloadStatus} onValueChange={(v) => { setDownloadStatus(v === 'all' ? '' : v); setPage(1) }}>
           <SelectTrigger className={cn('w-36', downloadStatus && 'border-primary')}><SelectValue placeholder="Загрузка" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все</SelectItem>
@@ -246,7 +316,7 @@ export default function RegistryPage() {
             <SelectItem value="downloaded">Скачано</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={genre} onValueChange={(v) => setGenre(v === 'all' ? '' : v)}>
+        <Select value={genre} onValueChange={(v) => { setGenre(v === 'all' ? '' : v); setPage(1) }}>
           <SelectTrigger className={cn('w-32', genre && 'border-primary')}><SelectValue placeholder="Жанр" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все</SelectItem>
@@ -255,7 +325,7 @@ export default function RegistryPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={informer} onValueChange={(v) => setInformer(v === 'all' ? '' : v)}>
+        <Select value={informer} onValueChange={(v) => { setInformer(v === 'all' ? '' : v); setPage(1) }}>
           <SelectTrigger className={cn('w-36', informer && 'border-primary')}><SelectValue placeholder="Информатор" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все</SelectItem>
@@ -269,7 +339,7 @@ export default function RegistryPage() {
           variant={isFavorite ? 'default' : 'outline'}
           size="sm"
           aria-pressed={isFavorite}
-          onClick={() => setIsFavorite((v) => !v)}
+          onClick={() => { setIsFavorite((v) => !v); setPage(1) }}
         >
           <Star fill={isFavorite ? 'currentColor' : 'none'} />
           Избранное
@@ -279,7 +349,7 @@ export default function RegistryPage() {
           variant={isAnime ? 'default' : 'outline'}
           size="sm"
           aria-pressed={isAnime}
-          onClick={() => setIsAnime((v) => !v)}
+          onClick={() => { setIsAnime((v) => !v); setPage(1) }}
         >
           Аниме
         </Button>
@@ -294,10 +364,21 @@ export default function RegistryPage() {
       {isLoading ? (
         <p className="text-muted-foreground">Загрузка...</p>
       ) : data?.results?.length ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {data.results.map((entry: MediaEntry) => (
-            <MediaCard key={entry.id} entry={entry} />
-          ))}
+        <div className="space-y-6">
+          <p className="text-sm text-muted-foreground">Всего: {data.count}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {data.results.map((entry: MediaEntry) => (
+              <MediaCard key={entry.id} entry={entry} />
+            ))}
+          </div>
+          <Pagination
+            page={data.page}
+            totalPages={data.total_pages}
+            onChange={(p) => {
+              setPage(p)
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+          />
         </div>
       ) : hasFilters ? (
         <div className="space-y-2 text-muted-foreground">

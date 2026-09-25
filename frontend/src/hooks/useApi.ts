@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { mediaApi, genresApi, countriesApi, informersApi, searchApi, importApi, collectionsApi } from '@/api/endpoints'
-import type { MediaEntry } from '@/types'
+import type { MediaEntry, PaginatedResponse } from '@/types'
 
 export const useGenres = () =>
   useQuery({ queryKey: ['genres'], queryFn: genresApi.list })
@@ -12,7 +12,11 @@ export const useInformersList = () =>
   useQuery({ queryKey: ['informers'], queryFn: informersApi.list })
 
 export const useMediaList = (params?: Record<string, string>) =>
-  useQuery({ queryKey: ['media', params], queryFn: () => mediaApi.list(params) })
+  useQuery<PaginatedResponse<MediaEntry>>({
+    queryKey: ['media', params],
+    queryFn: () => mediaApi.list(params),
+    placeholderData: keepPreviousData,
+  })
 
 export const useMediaDetail = (id: number) =>
   useQuery({ queryKey: ['media', id], queryFn: () => mediaApi.detail(id), enabled: !!id })
