@@ -27,7 +27,14 @@ class CollectionListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ("id", "name", "description", "item_count", "created_at")
+        fields = (
+            "id",
+            "name",
+            "description",
+            "poster",
+            "item_count",
+            "created_at",
+        )
 
     def get_item_count(self, obj):
         return obj.items.count()
@@ -38,4 +45,4 @@ class CollectionDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ("id", "name", "description", "items", "created_at")
+        fields = ("id", "name", "description", "poster", "items", "created_at")

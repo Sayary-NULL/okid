@@ -5,6 +5,14 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from shelves.models import Collection, CollectionItem
+
+MAX_POSTER_BYTES = 10 * 1024 * 1024
+ALLOWED_POSTER_TYPES = (
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+)
 from shelves.serializers import (
     CollectionDetailSerializer,
     CollectionItemSerializer,
@@ -24,6 +32,36 @@ class CollectionViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post", "delete"], url_path="poster")
+    def poster(self, request, pk=None):
+        collection = self.get_object()
+        if request.method == "DELETE":
+            if collection.poster:
+                collection.poster.delete(save=False)
+            collection.poster = None
+            collection.save(update_fields=["poster"])
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        upload = request.FILES.get("poster")
+        if upload is None:
+            return Response(
+                {"error": "No poster file provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if upload.size > MAX_POSTER_BYTES:
+            return Response(
+                {"error": "Poster is too large."},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+        if upload.content_type not in ALLOWED_POSTER_TYPES:
+            return Response(
+                {"error": "Unsupported image type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        collection.poster = upload
+        collection.save(update_fields=["poster"])
+        return Response(CollectionDetailSerializer(collection).data)
 
     @action(detail=True, methods=["post"])
     def items(self, request, pk=None):

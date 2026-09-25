@@ -92,6 +92,15 @@ export const collectionsApi = {
   delete: (id: number) =>
     api.delete(`/collections/${id}/`),
 
+  setPoster: (id: number, file: File) => {
+    const form = new FormData()
+    form.append('poster', file)
+    return api.post(`/collections/${id}/poster/`, form).then((r) => r.data)
+  },
+
+  removePoster: (id: number) =>
+    api.delete(`/collections/${id}/poster/`),
+
   addItem: (collectionId: number, mediaEntryId: number) =>
     api.post(`/collections/${collectionId}/items/`, {
       media_entry: mediaEntryId,

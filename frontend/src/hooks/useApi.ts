@@ -11,11 +11,15 @@ export const useCountries = () =>
 export const useInformersList = () =>
   useQuery({ queryKey: ['informers'], queryFn: informersApi.list })
 
-export const useMediaList = (params?: Record<string, string>) =>
+export const useMediaList = (
+  params?: Record<string, string>,
+  enabled = true,
+) =>
   useQuery<PaginatedResponse<MediaEntry>>({
     queryKey: ['media', params],
     queryFn: () => mediaApi.list(params),
     placeholderData: keepPreviousData,
+    enabled,
   })
 
 export const useMediaDetail = (id: number) =>
@@ -189,12 +193,32 @@ export const useDeleteCollection = () => {
   })
 }
 
+export const useSetCollectionPoster = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, file }: { id: number; file: File }) =>
+      collectionsApi.setPoster(id, file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['collections'] }),
+  })
+}
+
+export const useRemoveCollectionPoster = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => collectionsApi.removePoster(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['collections'] }),
+  })
+}
+
 export const useAddCollectionItem = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ collectionId, mediaEntryId }: { collectionId: number; mediaEntryId: number }) =>
       collectionsApi.addItem(collectionId, mediaEntryId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['collections'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['collections'] })
+      qc.invalidateQueries({ queryKey: ['media'] })
+    },
   })
 }
 
@@ -203,7 +227,10 @@ export const useRemoveCollectionItem = () => {
   return useMutation({
     mutationFn: ({ collectionId, itemId }: { collectionId: number; itemId: number }) =>
       collectionsApi.removeItem(collectionId, itemId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['collections'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['collections'] })
+      qc.invalidateQueries({ queryKey: ['media'] })
+    },
   })
 }
 

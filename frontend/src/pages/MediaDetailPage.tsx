@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   useMediaDetail, useHistory, useInformers, useDeleteMedia,
-  useCreateHistory, useCreateInformer, useDeleteInformer, useCollections,
-  useAddCollectionItem, useToggleFavorite, useInformersList, useUpdateMedia,
+  useCreateHistory, useCreateInformer, useDeleteInformer,
+  useToggleFavorite, useInformersList, useUpdateMedia,
   useDeleteHistory,
 } from '@/hooks/useApi'
 import type { DownloadStatus, Informer } from '@/types'
@@ -48,13 +48,11 @@ export default function MediaDetailPage() {
   const { data: history } = useHistory(mediaId)
   const { data: informers } = useInformers(mediaId)
   const { data: allInformers } = useInformersList()
-  const { data: collections } = useCollections()
   const deleteMedia = useDeleteMedia()
   const createHistory = useCreateHistory()
   const deleteHistory = useDeleteHistory()
   const createInformer = useCreateInformer()
   const deleteInformer = useDeleteInformer()
-  const addCollectionItem = useAddCollectionItem()
   const toggleFavorite = useToggleFavorite()
   const updateMedia = useUpdateMedia()
 
@@ -102,10 +100,6 @@ export default function MediaDetailPage() {
 
   const handleRemoveInformer = async (informerId: number) => {
     await deleteInformer.mutateAsync({ id: mediaId, informerId })
-  }
-
-  const handleAddToCollection = async (collectionId: number) => {
-    await addCollectionItem.mutateAsync({ collectionId, mediaEntryId: mediaId })
   }
 
   const handleCycleDownload = () => {
@@ -292,16 +286,24 @@ export default function MediaDetailPage() {
         </TabsContent>
 
         <TabsContent value="collections" className="space-y-3">
-          <div className="space-y-2">
-            {collections?.results?.map((col: { id: number; name: string }) => (
-              <div key={col.id} className="flex items-center justify-between">
-                <Link to={`/collections/${col.id}`} className="text-sm hover:underline">{col.name}</Link>
-                <Button size="sm" variant="outline" onClick={() => handleAddToCollection(col.id)}>
-                  Добавить
-                </Button>
-              </div>
-            ))}
-          </div>
+          {entry.collections?.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {entry.collections.map((col: { id: number; name: string; poster?: string | null }) => (
+                <Link key={col.id} to={`/collections/${col.id}`}>
+                  <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-muted">
+                    {col.poster && (
+                      <img src={col.poster} alt={col.name} className="h-full w-full object-cover" />
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-gray-600/80 via-gray-600/40 to-transparent px-3 pb-2 pt-8">
+                      <p className="text-sm font-medium text-white truncate">{col.name}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Медиа не входит ни в одну коллекцию</p>
+          )}
         </TabsContent>
       </Tabs>
     </div>

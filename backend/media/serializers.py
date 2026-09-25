@@ -119,11 +119,36 @@ class MediaEntryListSerializer(serializers.ModelSerializer):
 class MediaEntryDetailSerializer(serializers.ModelSerializer):
     genres = GenreSerializer(many=True, read_only=True)
     countries = CountrySerializer(many=True, read_only=True)
+    collections = serializers.SerializerMethodField()
 
     class Meta:
         model = MediaEntry
         fields = "__all__"
         read_only_fields = ("user", "created_at", "updated_at")
+
+    def get_collections(self, obj):
+        items = (
+            obj.collection_items.select_related("collection")
+            .filter(collection__user=obj.user)
+            .order_by("collection__name")
+        )
+        request = self.context.get("request")
+        result = []
+        for item in items:
+            collection = item.collection
+            poster = None
+            if collection.poster:
+                poster = collection.poster.url
+                if request is not None:
+                    poster = request.build_absolute_uri(poster)
+            result.append(
+                {
+                    "id": collection.id,
+                    "name": collection.name,
+                    "poster": poster,
+                }
+            )
+        return result
 
 
 class MediaEntryWriteSerializer(serializers.ModelSerializer):

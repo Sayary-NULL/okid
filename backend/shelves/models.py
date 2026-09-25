@@ -7,6 +7,9 @@ class Collection(models.Model):
     )
     name = models.CharField(max_length=300)
     description = models.TextField(blank=True, default="")
+    poster = models.ImageField(
+        upload_to="collection_posters/", null=True, blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
