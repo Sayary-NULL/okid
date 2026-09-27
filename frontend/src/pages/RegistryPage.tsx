@@ -133,49 +133,59 @@ function pageWindow(current: number, total: number): (number | '…')[] {
 function Pagination({
   page,
   totalPages,
+  count,
   onChange,
 }: {
   page: number
   totalPages: number
+  count: number
   onChange: (page: number) => void
 }) {
-  if (totalPages <= 1) return null
   return (
     <div className="flex flex-wrap items-center justify-center gap-1">
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-      >
-        <ChevronLeft /> Назад
-      </Button>
-      {pageWindow(page, totalPages).map((p, i) =>
-        p === '…' ? (
-          <span key={`gap-${i}`} className="px-2 text-muted-foreground">
-            …
-          </span>
-        ) : (
+      {totalPages > 1 && (
+        <>
           <Button
-            key={p}
-            variant={p === page ? 'default' : 'outline'}
+            variant="outline"
             size="icon"
             className="h-8 w-8"
-            aria-current={p === page ? 'page' : undefined}
-            onClick={() => onChange(p)}
+            aria-label="Назад"
+            disabled={page <= 1}
+            onClick={() => onChange(page - 1)}
           >
-            {p}
+            <ChevronLeft />
           </Button>
-        ),
+          {pageWindow(page, totalPages).map((p, i) =>
+            p === '…' ? (
+              <span key={`gap-${i}`} className="px-2 text-muted-foreground">
+                …
+              </span>
+            ) : (
+              <Button
+                key={p}
+                variant={p === page ? 'default' : 'outline'}
+                size="icon"
+                className="h-8 w-8"
+                aria-current={p === page ? 'page' : undefined}
+                onClick={() => onChange(p)}
+              >
+                {p}
+              </Button>
+            ),
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            aria-label="Вперёд"
+            disabled={page >= totalPages}
+            onClick={() => onChange(page + 1)}
+          >
+            <ChevronRight />
+          </Button>
+        </>
       )}
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={page >= totalPages}
-        onClick={() => onChange(page + 1)}
-      >
-        Вперёд <ChevronRight />
-      </Button>
+      <span className="ml-2 text-sm text-muted-foreground">Всего: {count}</span>
     </div>
   )
 }
@@ -376,7 +386,6 @@ export default function RegistryPage() {
         <p className="text-muted-foreground">Загрузка...</p>
       ) : data?.results?.length ? (
         <div className="space-y-6">
-          <p className="text-sm text-muted-foreground">Всего: {data.count}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {data.results.map((entry: MediaEntry) => (
               <MediaCard key={entry.id} entry={entry} onOpen={(id) => { setEditing(false); setDetailId(id) }} />
@@ -385,6 +394,7 @@ export default function RegistryPage() {
           <Pagination
             page={data.page}
             totalPages={data.total_pages}
+            count={data.count}
             onChange={(p) => {
               setPage(p)
               window.scrollTo({ top: 0, behavior: 'smooth' })
