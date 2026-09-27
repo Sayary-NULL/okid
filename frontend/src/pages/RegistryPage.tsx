@@ -263,8 +263,8 @@ export default function RegistryPage() {
   )
 
   return (
-    <div className="space-y-6">
-      <div className="sticky -top-6 z-40 -mx-6 flex flex-wrap items-center gap-2 border-b bg-background px-6 pt-6 pb-3">
+    <div className="flex flex-col gap-6 pt-[72px]">
+      <div className="fixed left-64 right-0 top-0 z-40 flex h-[72px] items-center gap-2 border-b bg-background px-6">
         <div className="relative" ref={menuRef}>
           <Button
             type="button"
@@ -301,6 +301,7 @@ export default function RegistryPage() {
             </div>
           )}
         </div>
+        <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <form onSubmit={handleSearch} className="flex gap-2">
           <Input
             placeholder="Поиск..."
@@ -380,6 +381,7 @@ export default function RegistryPage() {
             Сбросить
           </Button>
         )}
+        </div>
       </div>
 
       {isLoading ? (

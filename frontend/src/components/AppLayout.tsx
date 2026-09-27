@@ -8,9 +8,9 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <aside className="w-64 shrink-0 border-r bg-muted/30 p-4 flex flex-col gap-4 overflow-y-auto">
+      <aside className="w-64 shrink-0 border-r bg-muted/30 px-4 pb-4 flex flex-col gap-4 overflow-y-auto">
         <h1
-          className="flex items-center gap-2 text-2xl font-bold pb-4 border-b"
+          className="-mx-4 flex h-[72px] items-center gap-2 px-4 text-2xl font-bold border-b"
           title="Отдел кинодел и досье"
         >
           <img src="/okid-logo.ico" alt="ОКИД" className="h-8 w-8" />
