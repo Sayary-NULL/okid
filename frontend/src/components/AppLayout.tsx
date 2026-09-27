@@ -7,8 +7,8 @@ export function AppLayout() {
   const navigate = useNavigate()
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-64 border-r bg-muted/30 p-4 flex flex-col gap-4">
+    <div className="flex h-screen overflow-hidden">
+      <aside className="w-64 shrink-0 border-r bg-muted/30 p-4 flex flex-col gap-4 overflow-y-auto">
         <h1
           className="flex items-center gap-2 text-2xl font-bold pb-4 border-b"
           title="Отдел кинодел и досье"
@@ -26,7 +26,7 @@ export function AppLayout() {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-6 overflow-y-auto">
         <Outlet />
       </main>
     </div>

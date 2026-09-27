@@ -264,7 +264,7 @@ export default function RegistryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="sticky -top-6 z-40 -mx-6 flex flex-wrap items-center gap-2 border-b bg-background px-6 pt-6 pb-3">
         <div className="relative" ref={menuRef}>
           <Button
             type="button"
@@ -397,7 +397,7 @@ export default function RegistryPage() {
             count={data.count}
             onChange={(p) => {
               setPage(p)
-              window.scrollTo({ top: 0, behavior: 'smooth' })
+              document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' })
             }}
           />
         </div>
