@@ -10,6 +10,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { MediaDetail } from '@/components/MediaDetail'
+import { MediaEditForm } from '@/components/MediaEditForm'
 import type { MediaEntry } from '@/types'
 
 const statusLabels: Record<string, string> = {
@@ -30,7 +33,7 @@ const downloadIconClasses: Record<string, string> = {
   downloaded: 'bg-green-500 text-black',
 }
 
-function MediaCard({ entry }: { entry: MediaEntry }) {
+function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) => void }) {
   const posterSrc = entry.poster_local || entry.poster_url
   const toggleFavorite = useToggleFavorite()
 
@@ -40,8 +43,14 @@ function MediaCard({ entry }: { entry: MediaEntry }) {
     toggleFavorite.mutate({ id: entry.id, isFavorite: !entry.is_favorite })
   }
 
+  const handleOpen = (e: ReactMouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+    e.preventDefault()
+    onOpen(entry.id)
+  }
+
   return (
-    <Link to={`/media/${entry.id}`}>
+    <Link to={`/media/${entry.id}`} onClick={handleOpen}>
       <Card className="hover:shadow-lg transition-shadow overflow-hidden">
         <div className="aspect-[2/3] bg-muted relative">
           {posterSrc ? (
@@ -182,6 +191,8 @@ export default function RegistryPage() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [isAnime, setIsAnime] = useState(false)
   const [page, setPage] = useState(1)
+  const [detailId, setDetailId] = useState<number | null>(null)
+  const [editing, setEditing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -368,7 +379,7 @@ export default function RegistryPage() {
           <p className="text-sm text-muted-foreground">Всего: {data.count}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {data.results.map((entry: MediaEntry) => (
-              <MediaCard key={entry.id} entry={entry} />
+              <MediaCard key={entry.id} entry={entry} onOpen={(id) => { setEditing(false); setDetailId(id) }} />
             ))}
           </div>
           <Pagination
@@ -391,6 +402,38 @@ export default function RegistryPage() {
           </div>
         </div>
       ) : null}
+
+      <Dialog
+        open={detailId !== null}
+        onOpenChange={(open) => {
+          if (open) return
+          if (editing) setEditing(false)
+          else setDetailId(null)
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto',
+            editing ? 'max-w-2xl' : 'max-w-4xl',
+          )}
+        >
+          <DialogTitle className="sr-only">
+            {editing ? 'Редактирование медиа' : 'Карточка медиа'}
+          </DialogTitle>
+          {detailId !== null && (
+            editing ? (
+              <MediaEditForm mediaId={detailId} onDone={() => setEditing(false)} />
+            ) : (
+              <MediaDetail
+                mediaId={detailId}
+                onClose={() => setDetailId(null)}
+                onEdit={() => setEditing(true)}
+                isModal
+              />
+            )
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
