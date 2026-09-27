@@ -12,7 +12,8 @@ export function UserRating({
   disabled?: boolean
 }) {
   const [hover, setHover] = useState<number | null>(null)
-  const active = hover ?? value ?? 0
+  const preview = hover ?? value
+  const active = preview ?? 0
   const isGold = active === 10
 
   return (
@@ -54,9 +55,14 @@ export function UserRating({
           </button>
         )
       })}
-      {value != null && (
-        <span className="ml-1 text-sm font-semibold tabular-nums text-muted-foreground">
-          {value}/10
+      {preview != null && (
+        <span
+          className={cn(
+            'ml-1 text-sm font-semibold tabular-nums',
+            hover != null ? 'text-foreground' : 'text-muted-foreground',
+          )}
+        >
+          {preview}/10
         </span>
       )}
     </div>

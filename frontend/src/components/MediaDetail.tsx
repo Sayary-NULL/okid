@@ -193,15 +193,6 @@ export function MediaDetail({
             </Button>
           )}
           <Button
-            variant="destructive"
-            size="icon"
-            onClick={handleDelete}
-            title="Удалить"
-            aria-label="Удалить"
-          >
-            <Trash2 />
-          </Button>
-          <Button
             variant="outline"
             size="icon"
             onClick={handleCycleDownload}
@@ -222,6 +213,15 @@ export function MediaDetail({
               </a>
             </Button>
           )}
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={handleDelete}
+            title="Удалить"
+            aria-label="Удалить"
+          >
+            <Trash2 />
+          </Button>
         </div>
       </div>
 
