@@ -111,7 +111,11 @@ export const collectionsApi = {
   setPoster: (id: number, file: File) => {
     const form = new FormData()
     form.append('poster', file)
-    return api.post(`/collections/${id}/poster/`, form).then((r) => r.data)
+    return api
+      .post(`/collections/${id}/poster/`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data)
   },
 
   removePoster: (id: number) =>
