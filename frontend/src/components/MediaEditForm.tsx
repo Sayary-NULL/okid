@@ -18,6 +18,7 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
   const setPoster = useSetMediaPoster()
   const removePoster = useRemoveMediaPoster()
   const posterInputRef = useRef<HTMLInputElement>(null)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
 
   const [title, setTitle] = useState('')
   const [originalTitle, setOriginalTitle] = useState('')
@@ -40,6 +41,14 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
       setPosterUrl(entry.poster_url || '')
     }
   }, [entry])
+
+  useEffect(() => {
+    const el = descriptionRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const border = el.offsetHeight - el.clientHeight
+    el.style.height = `${el.scrollHeight + border}px`
+  }, [description])
 
   const handleSavePoster = async () => {
     await savePoster.mutateAsync(mediaId)
@@ -153,10 +162,13 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
           <Label>Оригинальное название</Label>
           <Input value={originalTitle} onChange={(e) => setOriginalTitle(e.target.value)} />
         </div>
-        <div className="space-y-2">
+        <div className="grid w-fit grid-cols-[auto_auto_auto_auto] items-center gap-x-3 gap-y-2">
           <Label>Тип</Label>
+          <span />
+          <Label>Год начала</Label>
+          <Label>Год окончания</Label>
           <Select value={mediaType} onValueChange={(v) => { if (v) setMediaType(v) }}>
-            <SelectTrigger>
+            <SelectTrigger className="w-28">
               <SelectValue>{mediaType === 'series' ? 'Сериал' : 'Фильм'}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -164,24 +176,20 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
               <SelectItem value="series">Сериал</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Год начала</Label>
-            <Input type="number" value={yearStart} onChange={(e) => setYearStart(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Год окончания</Label>
-            <Input type="number" value={yearEnd} onChange={(e) => setYearEnd(e.target.value)} />
-          </div>
+          <Button
+            type="button"
+            variant={isAnime ? 'default' : 'outline'}
+            className="justify-self-start"
+            onClick={() => setIsAnime((v) => !v)}
+          >
+            Аниме
+          </Button>
+          <Input type="number" className="w-16 justify-self-start [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" maxLength={4} value={yearStart} onChange={(e) => setYearStart(e.target.value)} />
+          <Input type="number" className="w-16 justify-self-start [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" maxLength={4} value={yearEnd} onChange={(e) => setYearEnd(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label>Описание</Label>
-          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
-        </div>
-        <div className="flex items-center gap-2">
-          <input type="checkbox" id="is_anime" checked={isAnime} onChange={(e) => setIsAnime(e.target.checked)} />
-          <Label htmlFor="is_anime">Аниме</Label>
+          <Textarea ref={descriptionRef} className="max-h-[50vh] resize-none overflow-y-auto" value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="flex-1" onClick={onDone}>
