@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useMediaList, useGenres, useInformersList, useToggleFavorite } from '@/hooks/useApi'
+import { useMediaList, useMediaLetters, useGenres, useInformersList, useToggleFavorite } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -200,6 +200,7 @@ export default function RegistryPage() {
   const [informer, setInformer] = useState('')
   const [isFavorite, setIsFavorite] = useState(false)
   const [isAnime, setIsAnime] = useState(false)
+  const [letter, setLetter] = useState('')
   const [page, setPage] = useState(1)
   const [detailId, setDetailId] = useState<number | null>(null)
   const [editing, setEditing] = useState(false)
@@ -233,9 +234,11 @@ export default function RegistryPage() {
   if (informer) params.informer = informer
   if (isFavorite) params.is_favorite = 'true'
   if (isAnime) params.is_anime = 'true'
+  if (letter) params.letter = letter
   if (page > 1) params.page = String(page)
 
   const { data, isLoading } = useMediaList(params)
+  const { data: letters } = useMediaLetters()
   const { data: genres } = useGenres()
   const { data: informers } = useInformersList()
 
@@ -255,11 +258,12 @@ export default function RegistryPage() {
     setInformer('')
     setIsFavorite(false)
     setIsAnime(false)
+    setLetter('')
     setPage(1)
   }
 
   const hasFilters = Boolean(
-    searchQuery || type || myStatus || downloadStatus || genre || informer || isFavorite || isAnime,
+    searchQuery || type || myStatus || downloadStatus || genre || informer || isFavorite || isAnime || letter,
   )
 
   return (
@@ -384,10 +388,39 @@ export default function RegistryPage() {
         </div>
       </div>
 
+      {letters && letters.length > 0 && (
+        <nav
+          aria-label="Указатель по алфавиту"
+          className="fixed right-1.5 top-[88px] bottom-4 z-30 hidden flex-col items-center justify-center gap-0.5 overflow-y-auto md:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {letters.map(({ letter: char, count }) => (
+            <button
+              key={char}
+              type="button"
+              onClick={() => {
+                setLetter((current) => (current === char ? '' : char))
+                setPage(1)
+                document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+              title={`${char} — ${count}`}
+              aria-current={letter === char ? 'true' : undefined}
+              className={cn(
+                'flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-medium leading-none transition-colors',
+                letter === char
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              )}
+            >
+              {char}
+            </button>
+          ))}
+        </nav>
+      )}
+
       {isLoading ? (
         <p className="text-muted-foreground">Загрузка...</p>
       ) : data?.results?.length ? (
-        <div className="space-y-6">
+        <div className="space-y-6 md:pr-7">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {data.results.map((entry: MediaEntry) => (
               <MediaCard key={entry.id} entry={entry} onOpen={(id) => { setEditing(false); setDetailId(id) }} />

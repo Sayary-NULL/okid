@@ -95,6 +95,41 @@ class TestMedia:
         assert resp.data["count"] == 1
         assert resp.data["results"][0]["original_title"] == "Spider man"
 
+    def test_filter_by_letter(self, auth_client):
+        user = auth_client.user
+        MediaEntry.objects.create(user=user, title="Аватар")
+        MediaEntry.objects.create(user=user, title="Аладдин")
+        MediaEntry.objects.create(user=user, title="Бэтмен")
+        resp = auth_client.get("/api/media/?letter=А")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["count"] == 2
+        assert all(
+            item["title"].startswith("А") for item in resp.data["results"]
+        )
+
+    def test_filter_by_letter_ignores_case(self, auth_client):
+        user = auth_client.user
+        MediaEntry.objects.create(user=user, title="avatar")
+        MediaEntry.objects.create(user=user, title="Бэтмен")
+        resp = auth_client.get("/api/media/?letter=A")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["count"] == 1
+        assert resp.data["results"][0]["title"] == "avatar"
+
+    def test_letters_index(self, auth_client):
+        user = auth_client.user
+        MediaEntry.objects.create(user=user, title="Аватар")
+        MediaEntry.objects.create(user=user, title="Бэтмен")
+        MediaEntry.objects.create(user=user, title="12 обезьян")
+        MediaEntry.objects.create(user=user, title="[Без буквы]")
+        resp = auth_client.get("/api/media/letters/")
+        assert resp.status_code == status.HTTP_200_OK
+        counts = {item["letter"]: item["count"] for item in resp.data}
+        assert counts["А"] == 1
+        assert counts["Б"] == 1
+        assert counts["1"] == 1
+        assert "[" not in counts
+
     def test_filter_by_is_anime(self, auth_client):
         user = auth_client.user
         MediaEntry.objects.create(

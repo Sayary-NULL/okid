@@ -1,5 +1,6 @@
 import ipaddress
 import logging
+import re
 import socket
 from urllib.parse import urlparse
 
@@ -72,6 +73,32 @@ from media.serializers import (
 )
 
 
+CYRILLIC_ALPHABET = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
+LATIN_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+LETTER_GROUPS = set(CYRILLIC_ALPHABET) | set(LATIN_ALPHABET) | set("0123456789")
+
+GROUP_ORDER = {}
+for _index, _char in enumerate("0123456789"):
+    GROUP_ORDER[_char] = (0, _index)
+for _index, _char in enumerate(CYRILLIC_ALPHABET):
+    GROUP_ORDER[_char] = (1, _index)
+for _index, _char in enumerate(LATIN_ALPHABET):
+    GROUP_ORDER[_char] = (2, _index)
+
+
+def _title_group(title):
+    if not title:
+        return None
+    char = title.lstrip()[:1].upper()
+    if char in LETTER_GROUPS:
+        return char
+    return None
+
+
+def _group_sort_key(char):
+    return GROUP_ORDER.get(char, (3, char))
+
+
 class GenreViewSet(ReadOnlyModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
@@ -116,6 +143,7 @@ class MediaEntryViewSet(ModelViewSet):
         q = request.query_params.get("q")
         is_favorite = request.query_params.get("is_favorite")
         is_anime = request.query_params.get("is_anime")
+        letter = request.query_params.get("letter")
 
         if year:
             queryset = queryset.filter(year_start=year)
@@ -137,6 +165,8 @@ class MediaEntryViewSet(ModelViewSet):
             queryset = queryset.filter(is_favorite=True)
         if is_anime:
             queryset = queryset.filter(is_anime=True)
+        if letter:
+            queryset = queryset.filter(title__iregex=rf"^\s*{re.escape(letter)}")
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -145,6 +175,21 @@ class MediaEntryViewSet(ModelViewSet):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def letters(self, request):
+        titles = MediaEntry.objects.filter(user=request.user).values_list(
+            "title", flat=True
+        )
+        counts = {}
+        for title in titles:
+            group = _title_group(title)
+            if group is not None:
+                counts[group] = counts.get(group, 0) + 1
+        items = sorted(counts.items(), key=lambda item: _group_sort_key(item[0]))
+        return Response(
+            [{"letter": char, "count": count} for char, count in items]
+        )
 
     @action(detail=True, methods=["post"], url_path="save-poster")
     def save_poster(self, request, pk=None):

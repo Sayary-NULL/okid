@@ -54,6 +54,11 @@ export interface MediaEntry {
   updated_at: string
 }
 
+export interface MediaLetter {
+  letter: string
+  count: number
+}
+
 export interface MediaHistory {
   id: number
   old_status: string

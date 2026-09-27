@@ -68,4 +68,3 @@ volumes:
 networks:
   sayary-network:
     name: sayary-network
-    external: true

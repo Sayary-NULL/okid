@@ -22,6 +22,12 @@ export const useMediaList = (
     enabled,
   })
 
+export const useMediaLetters = () =>
+  useQuery({
+    queryKey: ['media', 'letters'],
+    queryFn: () => mediaApi.letters(),
+  })
+
 export const useMediaDetail = (id: number) =>
   useQuery({ queryKey: ['media', id], queryFn: () => mediaApi.detail(id), enabled: !!id })
 

@@ -1,5 +1,5 @@
 import api from './client'
-import type { AuthTokens, MediaEntry, PaginatedResponse } from '@/types'
+import type { AuthTokens, MediaEntry, MediaLetter, PaginatedResponse } from '@/types'
 
 export const authApi = {
   register: (data: { username: string; password: string }) =>
@@ -31,6 +31,9 @@ export const mediaApi = {
     api
       .get<PaginatedResponse<MediaEntry>>('/media/', { params })
       .then((r) => r.data),
+
+  letters: () =>
+    api.get<MediaLetter[]>('/media/letters/').then((r) => r.data),
 
   detail: (id: number) =>
     api.get(`/media/${id}/`).then((r) => r.data),
