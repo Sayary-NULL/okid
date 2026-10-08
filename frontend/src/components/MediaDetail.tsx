@@ -4,10 +4,11 @@ import {
   useToggleFavorite, useInformersList, useUpdateMedia,
   useDeleteHistory,
 } from '@/hooks/useApi'
-import type { DownloadStatus, Informer } from '@/types'
+import type { DownloadStatus, Informer, MyStatus } from '@/types'
 import { Pencil, Trash2, Star, X, Download, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { WatchStatusIcon, watchStatusLabels } from '@/components/WatchStatusIcon'
 import { SiteRating } from '@/components/SiteRating'
 import { UserRating } from '@/components/UserRating'
 import { cn } from '@/lib/utils'
@@ -16,10 +17,7 @@ import { Input } from '@/components/ui/input'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
-const statusLabels: Record<string, string> = {
-  plan_to_watch: 'Планирую', watching: 'Смотрю', dropped: 'Бросил', completed: 'Просмотрено',
-}
-const statusOrder = ['plan_to_watch', 'watching', 'dropped', 'completed']
+const statusOrder: MyStatus[] = ['plan_to_watch', 'watching', 'dropped', 'completed']
 const mediaTypeLabels: Record<string, string> = {
   movie: 'Фильм', series: 'Сериал',
 }
@@ -134,7 +132,7 @@ export function MediaDetail({
             <Badge>{mediaTypeLabels[entry.media_type] || entry.media_type}</Badge>
             {entry.is_anime && <Badge variant="secondary">Аниме</Badge>}
             {entry.year_start && <Badge variant="outline">{entry.year_start}{entry.year_end ? `–${entry.year_end}` : ''}</Badge>}
-            <Badge>{statusLabels[entry.my_status] || entry.my_status}</Badge>
+            <WatchStatusIcon status={entry.my_status} />
           </div>
           <UserRating
             value={entry.my_rating}
@@ -241,7 +239,7 @@ export function MediaDetail({
                 size="sm"
                 onClick={() => handleAddHistory(status)}
               >
-                {statusLabels[status]}
+                {watchStatusLabels[status]}
               </Button>
             ))}
           </div>
@@ -252,7 +250,7 @@ export function MediaDetail({
                   {new Date(h.created_at).toLocaleDateString('ru-RU')}
                 </span>
                 <span>
-                  {statusLabels[h.new_status] || h.new_status}
+                  {watchStatusLabels[h.new_status as MyStatus] || h.new_status}
                 </span>
                 <button
                   type="button"

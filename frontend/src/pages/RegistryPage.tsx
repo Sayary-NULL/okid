@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { useMediaList, useMediaLetters, useGenres, useInformersList, useToggleFavorite } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Star, Download, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -13,14 +12,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { MediaDetail } from '@/components/MediaDetail'
 import { MediaEditForm } from '@/components/MediaEditForm'
+import { WatchStatusIcon } from '@/components/WatchStatusIcon'
 import type { MediaEntry } from '@/types'
-
-const statusLabels: Record<string, string> = {
-  plan_to_watch: 'Планирую',
-  watching: 'Смотрю',
-  dropped: 'Бросил',
-  completed: 'Просмотрено',
-}
 
 const downloadLabels: Record<string, string> = {
   none: 'Нет',
@@ -85,6 +78,7 @@ function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) 
               <Download className="h-4 w-4" />
             </span>
           )}
+          <WatchStatusIcon status={entry.my_status} className="absolute bottom-2 left-2" />
         </div>
         <CardContent className="p-3 space-y-1">
           <p className="font-medium text-sm line-clamp-1">
@@ -94,7 +88,6 @@ function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) 
             )}
           </p>
           <div className="flex items-center gap-1">
-            <Badge>{statusLabels[entry.my_status] || entry.my_status}</Badge>
             {entry.my_rating != null && (
               <span
                 className={cn(
