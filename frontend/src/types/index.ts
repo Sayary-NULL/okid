@@ -49,6 +49,7 @@ export interface MediaEntry {
   rating_shikimori: number | null
   genres: Genre[]
   countries: Country[]
+  universe_collection_id: number | null
   collections?: { id: number; name: string; poster?: string | null }[]
   created_at: string
   updated_at: string
@@ -77,6 +78,7 @@ export interface Collection {
   name: string
   description: string
   poster: string | null
+  is_universe: boolean
   item_count: number
   created_at: string
 }
@@ -86,6 +88,7 @@ export interface CollectionDetail {
   name: string
   description: string
   poster: string | null
+  is_universe: boolean
   items: CollectionItem[]
   created_at: string
 }

@@ -2,12 +2,14 @@ import {
   useMediaDetail, useHistory, useInformers, useDeleteMedia,
   useCreateHistory, useCreateInformer, useDeleteInformer,
   useToggleFavorite, useInformersList, useUpdateMedia,
-  useDeleteHistory,
+  useDeleteHistory, useMediaList, useLinkUniverse,
+  useCollectionDetail, useRemoveCollectionItem, useUpdateItemPosition,
 } from '@/hooks/useApi'
-import type { DownloadStatus, Informer, MyStatus } from '@/types'
+import type { CollectionItem, DownloadStatus, Informer, MyStatus } from '@/types'
 import { Pencil, Trash2, Star, X, Download, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { WatchStatusIcon, watchStatusLabels } from '@/components/WatchStatusIcon'
 import { SiteRating } from '@/components/SiteRating'
 import { UserRating } from '@/components/UserRating'
@@ -59,13 +61,67 @@ export function MediaDetail({
   const deleteInformer = useDeleteInformer()
   const toggleFavorite = useToggleFavorite()
   const updateMedia = useUpdateMedia()
+  const linkUniverse = useLinkUniverse()
+  const removeUniverseItem = useRemoveCollectionItem()
+  const updateUniversePosition = useUpdateItemPosition()
 
   const [informerName, setInformerName] = useState('')
+  const [universeQuery, setUniverseQuery] = useState('')
+  const [linkError, setLinkError] = useState('')
+
+  const universeId = entry?.universe_collection_id ?? 0
+  const { data: franchise } = useCollectionDetail(universeId)
+
+  const trimmedUniverse = universeQuery.trim()
+  const { data: universeResults, isFetching: isUniverseSearching } = useMediaList(
+    trimmedUniverse ? { q: trimmedUniverse } : undefined,
+    trimmedUniverse.length > 0,
+  )
 
   if (isLoading) return <p className="text-muted-foreground">Загрузка...</p>
   if (!entry) return <p className="text-destructive">Не найдено</p>
 
   const posterSrc = entry.poster_local || entry.poster_url
+  const franchiseItems: CollectionItem[] = franchise?.items || []
+  const memberIds = new Set(franchiseItems.map((item) => item.media_entry))
+  const universeCandidates = (universeResults?.results || []).filter(
+    (m: { id: number }) => m.id !== entry.id && !memberIds.has(m.id),
+  )
+
+  const handleLinkUniverse = async (mediaEntryId: number) => {
+    setLinkError('')
+    try {
+      await linkUniverse.mutateAsync({ id: mediaId, mediaEntryId })
+      setUniverseQuery('')
+    } catch (err) {
+      const message = (
+        err as { response?: { data?: { error?: string } } }
+      ).response?.data?.error
+      setLinkError(message || 'Не удалось связать медиа')
+    }
+  }
+
+  const handleRemoveUniverse = async (itemId: number) => {
+    await removeUniverseItem.mutateAsync({ collectionId: universeId, itemId })
+  }
+
+  const handleUniverseMoveUp = async (itemId: number, position: number) => {
+    if (position <= 0) return
+    await updateUniversePosition.mutateAsync({
+      collectionId: universeId,
+      itemId,
+      position: position - 1,
+    })
+  }
+
+  const handleUniverseMoveDown = async (itemId: number, position: number) => {
+    if (position >= franchiseItems.length - 1) return
+    await updateUniversePosition.mutateAsync({
+      collectionId: universeId,
+      itemId,
+      position: position + 1,
+    })
+  }
 
   const handleDelete = async () => {
     if (confirm('Удалить запись?')) {
@@ -228,6 +284,7 @@ export function MediaDetail({
           <TabsTrigger value="history">История</TabsTrigger>
           <TabsTrigger value="informers">Информаторы</TabsTrigger>
           <TabsTrigger value="collections">Коллекции</TabsTrigger>
+          <TabsTrigger value="related">Связанное</TabsTrigger>
         </TabsList>
 
         <TabsContent value="history" className="space-y-3">
@@ -330,6 +387,124 @@ export function MediaDetail({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Медиа не входит ни в одну коллекцию</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="related" className="space-y-3">
+          <div className="space-y-2">
+            <Input
+              placeholder="Найти медиа для связи..."
+              value={universeQuery}
+              onChange={(e) => {
+                setUniverseQuery(e.target.value)
+                setLinkError('')
+              }}
+            />
+            {linkError && <p className="text-sm text-destructive">{linkError}</p>}
+            {trimmedUniverse && (
+              <div className="space-y-1">
+                {isUniverseSearching && (
+                  <p className="text-xs text-muted-foreground">Поиск...</p>
+                )}
+                {!isUniverseSearching && universeCandidates.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Ничего не найдено</p>
+                )}
+                {universeCandidates.map((media: { id: number; title: string }) => (
+                  <div
+                    key={media.id}
+                    className="flex items-center justify-between gap-3 rounded border p-2"
+                  >
+                    <span className="text-sm truncate">{media.title}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={linkUniverse.isPending}
+                      onClick={() => handleLinkUniverse(media.id)}
+                    >
+                      Связать
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {franchiseItems.length ? (
+            <div className="space-y-2">
+              {franchiseItems.map((item) => (
+                <Card key={item.id}>
+                  <CardContent className="p-3 flex items-center gap-4">
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => handleUniverseMoveUp(item.id, item.position)}
+                        title="Выше"
+                        aria-label="Выше"
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => handleUniverseMoveDown(item.id, item.position)}
+                        title="Ниже"
+                        aria-label="Ниже"
+                      >
+                        ↓
+                      </Button>
+                    </div>
+                    <Link
+                      to={`/media/${item.media_entry_detail.id}`}
+                      className="flex items-center gap-3 flex-1 min-w-0 hover:underline"
+                    >
+                      {item.media_entry_detail.poster_local || item.media_entry_detail.poster_url ? (
+                        <img
+                          src={item.media_entry_detail.poster_local || item.media_entry_detail.poster_url}
+                          alt=""
+                          className="w-10 h-14 object-cover rounded"
+                        />
+                      ) : null}
+                      <div className="min-w-0">
+                        <p className="font-medium break-words">{item.media_entry_detail.title}</p>
+                        <div className="flex gap-1">
+                          <Badge variant="outline" className="text-xs">
+                            {mediaTypeLabels[item.media_entry_detail.media_type] || item.media_entry_detail.media_type}
+                          </Badge>
+                          {item.media_entry_detail.year_start && (
+                            <Badge variant="outline" className="text-xs">
+                              {item.media_entry_detail.year_start}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={item.media_entry === mediaId}
+                      onClick={() => handleRemoveUniverse(item.id)}
+                      title={
+                        item.media_entry === mediaId
+                          ? 'Нельзя убрать саму медиа'
+                          : 'Убрать из связанных'
+                      }
+                      aria-label={
+                        item.media_entry === mediaId
+                          ? 'Нельзя убрать саму медиа'
+                          : `Убрать ${item.media_entry_detail.title} из связанных`
+                      }
+                    >
+                      ✕
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Медиа пока ни с чем не связано</p>
           )}
         </TabsContent>
       </Tabs>

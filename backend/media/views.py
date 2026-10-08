@@ -6,7 +6,9 @@ from urllib.parse import urlparse
 
 import requests
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin, ListModelMixin
@@ -71,6 +73,7 @@ from media.serializers import (
     MediaInformerCreateSerializer,
     MediaInformerSerializer,
 )
+from shelves.services import link_media, unlink_media
 
 
 CYRILLIC_ALPHABET = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
@@ -358,6 +361,49 @@ class MediaEntryViewSet(ModelViewSet):
         if not deleted:
             return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="universe")
+    def link_universe(self, request, pk=None):
+        entry = self.get_object()
+        linked_id = request.data.get("media_entry")
+        if not linked_id:
+            return Response(
+                {"error": "Поле media_entry обязательно."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        linked = get_object_or_404(
+            MediaEntry, pk=linked_id, user=request.user
+        )
+        try:
+            link_media(entry, linked)
+        except ValidationError as exc:
+            return Response(
+                {"error": exc.messages[0]},
+                status=status.HTTP_409_CONFLICT,
+            )
+        out = MediaEntryDetailSerializer(
+            entry, context=self.get_serializer_context()
+        )
+        return Response(out.data)
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"universe/(?P<media_id>[^/.]+)",
+    )
+    def unlink_universe(self, request, pk=None, media_id=None):
+        entry = self.get_object()
+        other = get_object_or_404(
+            MediaEntry, pk=media_id, user=request.user
+        )
+        collection = entry.universe_collection or other.universe_collection
+        if collection is not None:
+            unlink_media(collection, other)
+        entry.refresh_from_db()
+        out = MediaEntryDetailSerializer(
+            entry, context=self.get_serializer_context()
+        )
+        return Response(out.data)
 
 
 class InformerViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):

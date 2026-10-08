@@ -88,6 +88,7 @@ class MediaInformerCreateSerializer(serializers.Serializer):
 class MediaEntryListSerializer(serializers.ModelSerializer):
     genres = GenreSerializer(many=True, read_only=True)
     countries = CountrySerializer(many=True, read_only=True)
+    universe_collection_id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = MediaEntry
@@ -109,6 +110,7 @@ class MediaEntryListSerializer(serializers.ModelSerializer):
             "rating_imdb",
             "rating_tmdb",
             "rating_shikimori",
+            "universe_collection_id",
             "genres",
             "countries",
             "created_at",
@@ -120,16 +122,22 @@ class MediaEntryDetailSerializer(serializers.ModelSerializer):
     genres = GenreSerializer(many=True, read_only=True)
     countries = CountrySerializer(many=True, read_only=True)
     collections = serializers.SerializerMethodField()
+    universe_collection_id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = MediaEntry
         fields = "__all__"
-        read_only_fields = ("user", "created_at", "updated_at")
+        read_only_fields = (
+            "user",
+            "created_at",
+            "updated_at",
+            "universe_collection",
+        )
 
     def get_collections(self, obj):
         items = (
             obj.collection_items.select_related("collection")
-            .filter(collection__user=obj.user)
+            .filter(collection__user=obj.user, collection__is_universe=False)
             .order_by("collection__name")
         )
         request = self.context.get("request")
@@ -161,7 +169,13 @@ class MediaEntryWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MediaEntry
-        exclude = ("user", "poster_local", "created_at", "updated_at")
+        exclude = (
+            "user",
+            "poster_local",
+            "universe_collection",
+            "created_at",
+            "updated_at",
+        )
         extra_kwargs = {
             "poster_url": {"required": False, "allow_blank": True},
             "title": {"required": True},

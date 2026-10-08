@@ -182,7 +182,25 @@ export const useImport = () => {
 }
 
 export const useCollections = () =>
-  useQuery({ queryKey: ['collections'], queryFn: collectionsApi.list })
+  useQuery({ queryKey: ['collections'], queryFn: () => collectionsApi.list() })
+
+export const useFranchises = () =>
+  useQuery({
+    queryKey: ['collections', 'universe'],
+    queryFn: () => collectionsApi.list({ universe: 'true' }),
+  })
+
+export const useLinkUniverse = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, mediaEntryId }: { id: number; mediaEntryId: number }) =>
+      mediaApi.universe.link(id, mediaEntryId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['media'] })
+      qc.invalidateQueries({ queryKey: ['collections'] })
+    },
+  })
+}
 
 export const useCollectionDetail = (id: number) =>
   useQuery({

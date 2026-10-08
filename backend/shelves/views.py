@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
@@ -5,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from shelves.models import Collection, CollectionItem
+from shelves.services import link_media, unlink_media
 
 MAX_POSTER_BYTES = 10 * 1024 * 1024
 ALLOWED_POSTER_TYPES = (
@@ -23,7 +25,13 @@ from shelves.serializers import (
 
 class CollectionViewSet(ModelViewSet):
     def get_queryset(self):
-        return Collection.objects.filter(user=self.request.user)
+        queryset = Collection.objects.filter(user=self.request.user)
+        if self.action == "list":
+            universe = self.request.query_params.get("universe")
+            if universe and universe.lower() in ("1", "true"):
+                return queryset.filter(is_universe=True)
+            return queryset.filter(is_universe=False)
+        return queryset
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -68,15 +76,40 @@ class CollectionViewSet(ModelViewSet):
         collection = self.get_object()
         serializer = CollectionItemWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        media_entry = serializer.validated_data["media_entry"]
         existing = CollectionItem.objects.filter(
             collection=collection,
-            media_entry=serializer.validated_data["media_entry"],
+            media_entry=media_entry,
         )
         if existing.exists():
             return Response(
                 {"error": "Item already in collection."},
                 status=status.HTTP_409_CONFLICT,
             )
+        if collection.is_universe:
+            anchor = (
+                CollectionItem.objects.filter(collection=collection)
+                .select_related("media_entry")
+                .order_by("position")
+                .first()
+            )
+            if anchor is None:
+                return Response(
+                    {"error": "Franchise has no anchor media."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                link_media(anchor.media_entry, media_entry)
+            except ValidationError as exc:
+                return Response(
+                    {"error": exc.messages[0]},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            item = CollectionItem.objects.filter(
+                collection=collection, media_entry=media_entry
+            ).first()
+            out = CollectionItemSerializer(item)
+            return Response(out.data, status=status.HTTP_201_CREATED)
         max_pos = (
             CollectionItem.objects.filter(collection=collection)
             .order_by("-position")
@@ -85,7 +118,7 @@ class CollectionViewSet(ModelViewSet):
         position = (max_pos.position + 1) if max_pos else 0
         item = CollectionItem.objects.create(
             collection=collection,
-            media_entry=serializer.validated_data["media_entry"],
+            media_entry=media_entry,
             position=position,
         )
         out = CollectionItemSerializer(item)
@@ -97,7 +130,10 @@ class CollectionViewSet(ModelViewSet):
         item = get_object_or_404(
             CollectionItem, id=item_id, collection=collection
         )
-        item.delete()
+        if collection.is_universe:
+            unlink_media(collection, item.media_entry)
+        else:
+            item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(

@@ -13,13 +13,13 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Link } from 'react-router-dom'
 
-export default function CollectionDetailPage() {
+export default function FranchiseDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const collectionId = Number(id)
+  const franchiseId = Number(id)
   const navigate = useNavigate()
-  const { data: collection, isLoading } = useCollectionDetail(collectionId)
-  const updateCollection = useUpdateCollection()
-  const deleteCollection = useDeleteCollection()
+  const { data: franchise, isLoading } = useCollectionDetail(franchiseId)
+  const updateFranchise = useUpdateCollection()
+  const deleteFranchise = useDeleteCollection()
   const removeItem = useRemoveCollectionItem()
   const updatePosition = useUpdateItemPosition()
   const addItem = useAddCollectionItem()
@@ -31,6 +31,7 @@ export default function CollectionDetailPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [search, setSearch] = useState('')
+  const [addError, setAddError] = useState('')
 
   const trimmedSearch = search.trim()
   const { data: searchResults, isFetching: isSearching } = useMediaList(
@@ -38,68 +39,77 @@ export default function CollectionDetailPage() {
     trimmedSearch.length > 0,
   )
   const existingIds = new Set(
-    (collection?.items || []).map((item: { media_entry: number }) => item.media_entry),
+    (franchise?.items || []).map((item: { media_entry: number }) => item.media_entry),
   )
   const candidates = (searchResults?.results || []).filter(
     (media: MediaEntry) => !existingIds.has(media.id),
   )
 
   const startEdit = () => {
-    if (!collection) return
-    setName(collection.name)
-    setDescription(collection.description || '')
+    if (!franchise) return
+    setName(franchise.name)
+    setDescription(franchise.description || '')
     setEditing(true)
   }
 
   const handleSave = async () => {
-    await updateCollection.mutateAsync({ id: collectionId, data: { name, description } })
+    await updateFranchise.mutateAsync({ id: franchiseId, data: { name, description } })
     setEditing(false)
   }
 
   const handleDelete = async () => {
-    if (confirm('Удалить коллекцию?')) {
-      await deleteCollection.mutateAsync(collectionId)
-      navigate('/collections')
+    if (confirm('Удалить франшизу?')) {
+      await deleteFranchise.mutateAsync(franchiseId)
+      navigate('/franchises')
     }
   }
 
   const handleRemoveItem = async (itemId: number) => {
-    await removeItem.mutateAsync({ collectionId, itemId })
+    await removeItem.mutateAsync({ collectionId: franchiseId, itemId })
   }
 
   const handleAddItem = async (mediaEntryId: number) => {
-    await addItem.mutateAsync({ collectionId, mediaEntryId })
+    setAddError('')
+    try {
+      await addItem.mutateAsync({ collectionId: franchiseId, mediaEntryId })
+      setSearch('')
+    } catch (err) {
+      const message = (
+        err as { response?: { data?: { error?: string } } }
+      ).response?.data?.error
+      setAddError(message || 'Не удалось связать медиа')
+    }
   }
 
   const handlePosterChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      await setPoster.mutateAsync({ id: collectionId, file })
+      await setPoster.mutateAsync({ id: franchiseId, file })
     }
     e.target.value = ''
   }
 
   const handleMoveUp = async (itemId: number, currentPos: number) => {
     if (currentPos <= 0) return
-    await updatePosition.mutateAsync({ collectionId, itemId, position: currentPos - 1 })
+    await updatePosition.mutateAsync({ collectionId: franchiseId, itemId, position: currentPos - 1 })
   }
 
   const handleMoveDown = async (itemId: number, currentPos: number) => {
-    if (!collection?.items) return
-    if (currentPos >= collection.items.length - 1) return
-    await updatePosition.mutateAsync({ collectionId, itemId, position: currentPos + 1 })
+    if (!franchise?.items) return
+    if (currentPos >= franchise.items.length - 1) return
+    await updatePosition.mutateAsync({ collectionId: franchiseId, itemId, position: currentPos + 1 })
   }
 
   if (isLoading) return <p className="text-muted-foreground">Загрузка...</p>
-  if (!collection) return <p className="text-destructive">Не найдено</p>
+  if (!franchise) return <p className="text-destructive">Не найдено</p>
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="relative w-full aspect-[16/9] overflow-hidden rounded-lg bg-muted">
-        {collection.poster ? (
+        {franchise.poster ? (
           <img
-            src={collection.poster}
-            alt={collection.name}
+            src={franchise.poster}
+            alt={franchise.name}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -108,11 +118,11 @@ export default function CollectionDetailPage() {
           </div>
         )}
         <div className="absolute inset-x-0 top-0 bg-linear-to-b from-black/80 via-black/50 to-transparent px-4 pt-3 pb-10">
-          <h1 className="text-2xl font-bold text-white">{collection.name}</h1>
+          <h1 className="text-2xl font-bold text-white">{franchise.name}</h1>
         </div>
-        {collection.description && (
+        {franchise.description && (
           <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-gray-600/80 via-gray-600/40 to-transparent px-4 pb-3 pt-10">
-            <p className="text-sm text-white">{collection.description}</p>
+            <p className="text-sm text-white">{franchise.description}</p>
           </div>
         )}
         {!editing && (
@@ -120,7 +130,7 @@ export default function CollectionDetailPage() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => navigate('/collections')}
+              onClick={() => navigate('/franchises')}
               title="Закрыть"
               aria-label="Закрыть"
             >
@@ -163,13 +173,13 @@ export default function CollectionDetailPage() {
               onClick={() => posterInputRef.current?.click()}
               disabled={setPoster.isPending}
             >
-              {collection.poster ? 'Изменить постер' : 'Установить постер'}
+              {franchise.poster ? 'Изменить постер' : 'Установить постер'}
             </Button>
-            {collection.poster && (
+            {franchise.poster && (
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => removePoster.mutate(collectionId)}
+                onClick={() => removePoster.mutate(franchiseId)}
                 disabled={removePoster.isPending}
               >
                 Удалить постер
@@ -191,10 +201,14 @@ export default function CollectionDetailPage() {
         <>
           <div className="space-y-2">
             <Input
-              placeholder="Найти медиа для добавления..."
+              placeholder="Найти медиа для добавления в франшизу..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setAddError('')
+              }}
             />
+            {addError && <p className="text-sm text-destructive">{addError}</p>}
             {trimmedSearch && (
               <div className="space-y-1">
                 {isSearching && <p className="text-xs text-muted-foreground">Поиск...</p>}
@@ -217,7 +231,7 @@ export default function CollectionDetailPage() {
           </div>
 
           <div className="space-y-2">
-            {collection.items?.map((item: { id: number; media_entry_detail: { id: number; title: string; poster_url?: string; poster_local?: string; media_type: string; year_start: number | null }; position: number }) => (
+            {franchise.items?.map((item: { id: number; media_entry_detail: { id: number; title: string; poster_url?: string; poster_local?: string; media_type: string; year_start: number | null }; position: number }) => (
           <Card key={item.id}>
             <CardContent className="p-3 flex items-center gap-4">
               <div className="flex flex-col gap-1">

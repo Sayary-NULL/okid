@@ -59,7 +59,6 @@ export default function CollectionsPage() {
                 </div>
                 <CardContent className="p-4 space-y-1">
                   <p className="font-medium">{col.name}</p>
-                  {col.description && <p className="text-sm text-muted-foreground">{col.description}</p>}
                   <p className="text-xs text-muted-foreground">{col.item_count ?? 0} элементов</p>
                 </CardContent>
               </Card>

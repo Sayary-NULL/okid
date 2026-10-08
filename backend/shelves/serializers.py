@@ -32,6 +32,7 @@ class CollectionListSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "poster",
+            "is_universe",
             "item_count",
             "created_at",
         )
@@ -45,4 +46,12 @@ class CollectionDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ("id", "name", "description", "poster", "items", "created_at")
+        fields = (
+            "id",
+            "name",
+            "description",
+            "poster",
+            "is_universe",
+            "items",
+            "created_at",
+        )

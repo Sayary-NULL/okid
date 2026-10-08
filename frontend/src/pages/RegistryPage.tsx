@@ -81,26 +81,12 @@ function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) 
           <WatchStatusIcon status={entry.my_status} className="absolute bottom-2 left-2" />
         </div>
         <CardContent className="p-3 space-y-1">
-          <p className="font-medium text-sm line-clamp-1">
+          <p className="font-medium text-sm line-clamp-1" title={entry.title}>
             {entry.title}
             {entry.year_start && (
               <span className="ml-1 text-xs text-muted-foreground">{entry.year_start}</span>
             )}
           </p>
-          <div className="flex items-center gap-1">
-            {entry.my_rating != null && (
-              <span
-                className={cn(
-                  'ml-auto inline-flex items-center gap-0.5 text-sm font-semibold tabular-nums',
-                  entry.my_rating === 10 ? 'text-[#FFD700]' : 'text-yellow-400',
-                )}
-                title={`Моя оценка: ${entry.my_rating}/10`}
-              >
-                <Star className="h-3.5 w-3.5" fill="currentColor" strokeWidth={0} />
-                {entry.my_rating}
-              </span>
-            )}
-          </div>
         </CardContent>
       </Card>
     </Link>

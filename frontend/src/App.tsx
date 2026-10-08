@@ -11,6 +11,8 @@ import MediaEditPage from '@/pages/MediaEditPage'
 import MediaSearchPage from '@/pages/MediaSearchPage'
 import CollectionsPage from '@/pages/CollectionsPage'
 import CollectionDetailPage from '@/pages/CollectionDetailPage'
+import FranchisesPage from '@/pages/FranchisesPage'
+import FranchiseDetailPage from '@/pages/FranchiseDetailPage'
 
 const queryClient = new QueryClient()
 
@@ -30,6 +32,8 @@ function App() {
               <Route path="/media/:id/edit" element={<MediaEditPage />} />
               <Route path="/collections" element={<CollectionsPage />} />
               <Route path="/collections/:id" element={<CollectionDetailPage />} />
+              <Route path="/franchises" element={<FranchisesPage />} />
+              <Route path="/franchises/:id" element={<FranchiseDetailPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />

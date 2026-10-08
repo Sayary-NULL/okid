@@ -10,6 +10,7 @@ class Collection(models.Model):
     poster = models.ImageField(
         upload_to="collection_posters/", null=True, blank=True
     )
+    is_universe = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

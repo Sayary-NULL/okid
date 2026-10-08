@@ -80,6 +80,11 @@ export const mediaApi = {
     remove: (id: number, informerId: number) =>
       api.delete(`/media/${id}/informers/${informerId}/`),
   },
+
+  universe: {
+    link: (id: number, mediaEntryId: number) =>
+      api.post(`/media/${id}/universe/`, { media_entry: mediaEntryId }).then((r) => r.data),
+  },
 }
 
 export const searchApi = {
@@ -93,8 +98,8 @@ export const importApi = {
 }
 
 export const collectionsApi = {
-  list: () =>
-    api.get('/collections/').then((r) => r.data),
+  list: (params?: Record<string, string>) =>
+    api.get('/collections/', { params }).then((r) => r.data),
 
   detail: (id: number) =>
     api.get(`/collections/${id}/`).then((r) => r.data),
