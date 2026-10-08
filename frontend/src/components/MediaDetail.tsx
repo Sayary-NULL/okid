@@ -484,18 +484,9 @@ export function MediaDetail({
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={item.media_entry === mediaId}
                       onClick={() => handleRemoveUniverse(item.id)}
-                      title={
-                        item.media_entry === mediaId
-                          ? 'Нельзя убрать саму медиа'
-                          : 'Убрать из связанных'
-                      }
-                      aria-label={
-                        item.media_entry === mediaId
-                          ? 'Нельзя убрать саму медиа'
-                          : `Убрать ${item.media_entry_detail.title} из связанных`
-                      }
+                      title="Убрать из связанных"
+                      aria-label={`Убрать ${item.media_entry_detail.title} из связанных`}
                     >
                       ✕
                     </Button>
