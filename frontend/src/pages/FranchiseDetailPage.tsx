@@ -245,7 +245,7 @@ export default function FranchiseDetailPage() {
                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleMoveUp(item.id, index)}>↑</Button>
                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleMoveDown(item.id, index)}>↓</Button>
               </div>
-              <Link to={`/media/${item.media_entry_detail.id}`} className="flex items-center gap-3 flex-1 min-w-0 hover:underline">
+              <Link to={`/media/${item.media_entry_detail.id}`} className="flex items-center gap-3 flex-1 min-w-0">
                 {item.media_entry_detail.poster_local || item.media_entry_detail.poster_url ? (
                   <img
                     src={item.media_entry_detail.poster_local || item.media_entry_detail.poster_url}

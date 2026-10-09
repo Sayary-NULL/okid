@@ -166,8 +166,10 @@ class MediaEntryViewSet(ModelViewSet):
             )
         if is_favorite:
             queryset = queryset.filter(is_favorite=True)
-        if is_anime:
+        if is_anime == "true":
             queryset = queryset.filter(is_anime=True)
+        elif is_anime == "false":
+            queryset = queryset.filter(is_anime=False)
         if letter:
             queryset = queryset.filter(title__iregex=rf"^\s*{re.escape(letter)}")
 

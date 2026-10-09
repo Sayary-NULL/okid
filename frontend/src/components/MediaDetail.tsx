@@ -459,7 +459,7 @@ export function MediaDetail({
                     </div>
                     <Link
                       to={`/media/${item.media_entry_detail.id}`}
-                      className="flex items-center gap-3 flex-1 min-w-0 hover:underline"
+                      className="flex items-center gap-3 flex-1 min-w-0"
                     >
                       {item.media_entry_detail.poster_local || item.media_entry_detail.poster_url ? (
                         <img

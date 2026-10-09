@@ -167,7 +167,7 @@ export default function RegistryPage() {
   const [genre, setGenre] = useState('')
   const [informer, setInformer] = useState('')
   const [isFavorite, setIsFavorite] = useState(false)
-  const [isAnime, setIsAnime] = useState(false)
+  const [isAnime, setIsAnime] = useState('')
   const [letter, setLetter] = useState('')
   const [page, setPage] = useState(1)
   const [detailId, setDetailId] = useState<number | null>(null)
@@ -201,7 +201,7 @@ export default function RegistryPage() {
   if (genre) params.genre = genre
   if (informer) params.informer = informer
   if (isFavorite) params.is_favorite = 'true'
-  if (isAnime) params.is_anime = 'true'
+  if (isAnime) params.is_anime = isAnime
   if (letter) params.letter = letter
   if (page > 1) params.page = String(page)
 
@@ -225,7 +225,7 @@ export default function RegistryPage() {
     setGenre('')
     setInformer('')
     setIsFavorite(false)
-    setIsAnime(false)
+    setIsAnime('')
     setLetter('')
     setPage(1)
   }
@@ -338,15 +338,14 @@ export default function RegistryPage() {
           <Star fill={isFavorite ? 'currentColor' : 'none'} />
           Избранное
         </Button>
-        <Button
-          type="button"
-          variant={isAnime ? 'default' : 'outline'}
-          size="sm"
-          aria-pressed={isAnime}
-          onClick={() => { setIsAnime((v) => !v); setPage(1) }}
-        >
-          Аниме
-        </Button>
+        <Select value={isAnime} onValueChange={(v) => { setIsAnime(v === 'all' ? '' : v); setPage(1) }}>
+          <SelectTrigger className={cn('w-32', isAnime && 'border-primary')}><SelectValue placeholder="Аниме" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все</SelectItem>
+            <SelectItem value="true">Аниме</SelectItem>
+            <SelectItem value="false">Без аниме</SelectItem>
+          </SelectContent>
+        </Select>
         {hasFilters && (
           <Button type="button" variant="ghost" size="sm" onClick={handleReset}>
             <X />
