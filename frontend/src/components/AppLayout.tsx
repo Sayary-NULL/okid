@@ -20,6 +20,7 @@ export function AppLayout() {
           <Link to="/" className="text-base hover:underline">Кино-дела</Link>
           <Link to="/collections" className="text-base hover:underline">Фонд кино‑дел</Link>
           <Link to="/franchises" className="text-base hover:underline">Франшизы</Link>
+          <a href="/admin/" className="text-base hover:underline">Настройки</a>
         </nav>
         <div className="mt-auto">
           <Button variant="outline" size="sm" onClick={() => { logout(); navigate('/login') }}>
