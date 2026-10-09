@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMediaList, useMediaLetters, useGenres, useInformersList, useToggleFavorite } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Star, Download, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Star, Download, Plus, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -93,22 +93,6 @@ function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) 
   )
 }
 
-function pageWindow(current: number, total: number): (number | '…')[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const wanted = new Set([1, total, current - 1, current, current + 1])
-  const sorted = [...wanted]
-    .filter((p) => p >= 1 && p <= total)
-    .sort((a, b) => a - b)
-  const out: (number | '…')[] = []
-  let prev = 0
-  for (const p of sorted) {
-    if (prev && p - prev > 1) out.push('…')
-    out.push(p)
-    prev = p
-  }
-  return out
-}
-
 function Pagination({
   page,
   totalPages,
@@ -128,30 +112,25 @@ function Pagination({
             variant="outline"
             size="icon"
             className="h-8 w-8"
+            aria-label="Первая страница"
+            disabled={page <= 1}
+            onClick={() => onChange(1)}
+          >
+            <ChevronsLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
             aria-label="Назад"
             disabled={page <= 1}
             onClick={() => onChange(page - 1)}
           >
             <ChevronLeft />
           </Button>
-          {pageWindow(page, totalPages).map((p, i) =>
-            p === '…' ? (
-              <span key={`gap-${i}`} className="px-2 text-muted-foreground">
-                …
-              </span>
-            ) : (
-              <Button
-                key={p}
-                variant={p === page ? 'default' : 'outline'}
-                size="icon"
-                className="h-8 w-8"
-                aria-current={p === page ? 'page' : undefined}
-                onClick={() => onChange(p)}
-              >
-                {p}
-              </Button>
-            ),
-          )}
+          <span className="px-2 text-sm text-muted-foreground">
+            {page} из {totalPages}
+          </span>
           <Button
             variant="outline"
             size="icon"
@@ -162,9 +141,19 @@ function Pagination({
           >
             <ChevronRight />
           </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            aria-label="Последняя страница"
+            disabled={page >= totalPages}
+            onClick={() => onChange(totalPages)}
+          >
+            <ChevronsRight />
+          </Button>
         </>
       )}
-      <span className="ml-2 text-sm text-muted-foreground">Всего: {count}</span>
+      <span className="ml-2 text-sm text-muted-foreground">Записей: {count}</span>
     </div>
   )
 }
