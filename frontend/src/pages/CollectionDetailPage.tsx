@@ -79,15 +79,15 @@ export default function CollectionDetailPage() {
     e.target.value = ''
   }
 
-  const handleMoveUp = async (itemId: number, currentPos: number) => {
-    if (currentPos <= 0) return
-    await updatePosition.mutateAsync({ collectionId, itemId, position: currentPos - 1 })
+  const handleMoveUp = async (itemId: number, index: number) => {
+    if (index <= 0) return
+    await updatePosition.mutateAsync({ collectionId, itemId, position: index - 1 })
   }
 
-  const handleMoveDown = async (itemId: number, currentPos: number) => {
+  const handleMoveDown = async (itemId: number, index: number) => {
     if (!collection?.items) return
-    if (currentPos >= collection.items.length - 1) return
-    await updatePosition.mutateAsync({ collectionId, itemId, position: currentPos + 1 })
+    if (index >= collection.items.length - 1) return
+    await updatePosition.mutateAsync({ collectionId, itemId, position: index + 1 })
   }
 
   if (isLoading) return <p className="text-muted-foreground">Загрузка...</p>
@@ -217,12 +217,12 @@ export default function CollectionDetailPage() {
           </div>
 
           <div className="space-y-2">
-            {collection.items?.map((item: { id: number; media_entry_detail: { id: number; title: string; poster_url?: string; poster_local?: string; media_type: string; year_start: number | null }; position: number }) => (
+            {collection.items?.map((item: { id: number; media_entry_detail: { id: number; title: string; poster_url?: string; poster_local?: string; media_type: string; year_start: number | null }; position: number }, index: number) => (
           <Card key={item.id}>
             <CardContent className="p-3 flex items-center gap-4">
               <div className="flex flex-col gap-1">
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleMoveUp(item.id, item.position)}>↑</Button>
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleMoveDown(item.id, item.position)}>↓</Button>
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleMoveUp(item.id, index)}>↑</Button>
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleMoveDown(item.id, index)}>↓</Button>
               </div>
               <Link to={`/media/${item.media_entry_detail.id}`} className="flex items-center gap-3 flex-1 min-w-0 hover:underline">
                 {item.media_entry_detail.poster_local || item.media_entry_detail.poster_url ? (

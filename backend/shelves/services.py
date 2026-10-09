@@ -66,6 +66,23 @@ def link_media(entry, linked):
     return collection
 
 
+@transaction.atomic
+def move_item(collection, item, position):
+    """Move ``item`` to ``position`` and renumber the collection densely."""
+    siblings = list(
+        CollectionItem.objects.filter(collection=collection).order_by(
+            "position", "id"
+        )
+    )
+    ordered = [sibling for sibling in siblings if sibling.pk != item.pk]
+    position = max(0, min(position, len(ordered)))
+    ordered.insert(position, item)
+    for index, member in enumerate(ordered):
+        if member.position != index:
+            member.position = index
+            member.save(update_fields=["position"])
+
+
 def _clear_universe(collection):
     for member in collection.universe_media.all():
         if member.universe_collection_id == collection.id:

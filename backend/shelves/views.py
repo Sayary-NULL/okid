@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from shelves.models import Collection, CollectionItem
-from shelves.services import link_media, unlink_media
+from shelves.services import link_media, move_item, unlink_media
 
 MAX_POSTER_BYTES = 10 * 1024 * 1024
 ALLOWED_POSTER_TYPES = (
@@ -124,32 +124,30 @@ class CollectionViewSet(ModelViewSet):
         out = CollectionItemSerializer(item)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["delete"], url_path="items/(?P<item_id>[^/.]+)")
-    def delete_item(self, request, pk=None, item_id=None):
-        collection = self.get_object()
-        item = get_object_or_404(
-            CollectionItem, id=item_id, collection=collection
-        )
-        if collection.is_universe:
-            unlink_media(collection, item.media_entry)
-        else:
-            item.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
     @action(
         detail=True,
-        methods=["patch"],
+        methods=["patch", "delete"],
         url_path="items/(?P<item_id>[^/.]+)",
     )
-    def update_item(self, request, pk=None, item_id=None):
+    def item_detail(self, request, pk=None, item_id=None):
         collection = self.get_object()
         item = get_object_or_404(
             CollectionItem, id=item_id, collection=collection
         )
+        if request.method == "DELETE":
+            if collection.is_universe:
+                unlink_media(collection, item.media_entry)
+            else:
+                item.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
         serializer = CollectionItemWriteSerializer(
             item, data=request.data, partial=True
         )
         serializer.is_valid(raise_exception=True)
+        new_position = serializer.validated_data.get("position")
         serializer.save()
+        if new_position is not None:
+            move_item(collection, item, new_position)
         out = CollectionItemSerializer(item)
         return Response(out.data)

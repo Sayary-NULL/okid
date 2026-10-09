@@ -137,3 +137,44 @@ class TestCollections:
             f"/api/collections/{col.id}/items/{item_id}/"
         )
         assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_reorder_item_via_patch(self, auth_client):
+        user = auth_client.user
+        entries = [
+            MediaEntry.objects.create(user=user, title=f"E{i}")
+            for i in range(3)
+        ]
+        col = Collection.objects.create(user=user, name="Col")
+        item_ids = [
+            auth_client.post(
+                f"/api/collections/{col.id}/items/",
+                {"media_entry": entry.id},
+            ).data["id"]
+            for entry in entries
+        ]
+
+        # PATCH must be routed to the item detail action, not 405.
+        resp = auth_client.patch(
+            f"/api/collections/{col.id}/items/{item_ids[0]}/",
+            {"position": 1},
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        detail = auth_client.get(f"/api/collections/{col.id}/")
+        assert [i["media_entry"] for i in detail.data["items"]] == [
+            entries[1].id,
+            entries[0].id,
+            entries[2].id,
+        ]
+
+        resp = auth_client.patch(
+            f"/api/collections/{col.id}/items/{item_ids[2]}/",
+            {"position": 1},
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        detail = auth_client.get(f"/api/collections/{col.id}/")
+        assert [i["media_entry"] for i in detail.data["items"]] == [
+            entries[1].id,
+            entries[2].id,
+            entries[0].id,
+        ]
+        assert [i["position"] for i in detail.data["items"]] == [0, 1, 2]

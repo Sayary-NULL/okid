@@ -105,21 +105,21 @@ export function MediaDetail({
     await removeUniverseItem.mutateAsync({ collectionId: universeId, itemId })
   }
 
-  const handleUniverseMoveUp = async (itemId: number, position: number) => {
-    if (position <= 0) return
+  const handleUniverseMoveUp = async (itemId: number, index: number) => {
+    if (index <= 0) return
     await updateUniversePosition.mutateAsync({
       collectionId: universeId,
       itemId,
-      position: position - 1,
+      position: index - 1,
     })
   }
 
-  const handleUniverseMoveDown = async (itemId: number, position: number) => {
-    if (position >= franchiseItems.length - 1) return
+  const handleUniverseMoveDown = async (itemId: number, index: number) => {
+    if (index >= franchiseItems.length - 1) return
     await updateUniversePosition.mutateAsync({
       collectionId: universeId,
       itemId,
-      position: position + 1,
+      position: index + 1,
     })
   }
 
@@ -431,7 +431,7 @@ export function MediaDetail({
 
           {franchiseItems.length ? (
             <div className="space-y-2">
-              {franchiseItems.map((item) => (
+              {franchiseItems.map((item, index) => (
                 <Card key={item.id}>
                   <CardContent className="p-3 flex items-center gap-4">
                     <div className="flex flex-col gap-1">
@@ -439,7 +439,7 @@ export function MediaDetail({
                         size="icon"
                         variant="ghost"
                         className="h-6 w-6"
-                        onClick={() => handleUniverseMoveUp(item.id, item.position)}
+                        onClick={() => handleUniverseMoveUp(item.id, index)}
                         title="Выше"
                         aria-label="Выше"
                       >
@@ -449,7 +449,7 @@ export function MediaDetail({
                         size="icon"
                         variant="ghost"
                         className="h-6 w-6"
-                        onClick={() => handleUniverseMoveDown(item.id, item.position)}
+                        onClick={() => handleUniverseMoveDown(item.id, index)}
                         title="Ниже"
                         aria-label="Ниже"
                       >
