@@ -8,11 +8,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useState } from 'react'
 
 export default function CollectionsPage() {
-  const { data, isLoading } = useCollections()
+  const [q, setQ] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const params: Record<string, string> = {}
+  if (searchQuery) params.q = searchQuery
+  const { data, isLoading } = useCollections(params)
   const createCollection = useCreateCollection()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [open, setOpen] = useState(false)
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSearchQuery(q)
+  }
 
   const handleCreate = async () => {
     if (!name) return
@@ -42,7 +51,15 @@ export default function CollectionsPage() {
             </div>
           </DialogContent>
         </Dialog>
-        <h1 className="text-2xl font-bold">Коллекции</h1>
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <Input
+            placeholder="Поиск..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="w-48"
+          />
+          <Button type="submit">Поиск</Button>
+        </form>
       </div>
 
       {isLoading ? (

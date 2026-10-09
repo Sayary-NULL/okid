@@ -104,7 +104,7 @@ export const collectionsApi = {
   detail: (id: number) =>
     api.get(`/collections/${id}/`).then((r) => r.data),
 
-  create: (data: { name: string; description?: string }) =>
+  create: (data: { name: string; description?: string; is_universe?: boolean }) =>
     api.post('/collections/', data).then((r) => r.data),
 
   update: (id: number, data: Record<string, unknown>) =>

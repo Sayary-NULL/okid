@@ -181,13 +181,13 @@ export const useImport = () => {
   })
 }
 
-export const useCollections = () =>
-  useQuery({ queryKey: ['collections'], queryFn: () => collectionsApi.list() })
+export const useCollections = (params?: Record<string, string>) =>
+  useQuery({ queryKey: ['collections', params], queryFn: () => collectionsApi.list(params) })
 
-export const useFranchises = () =>
+export const useFranchises = (params?: Record<string, string>) =>
   useQuery({
-    queryKey: ['collections', 'universe'],
-    queryFn: () => collectionsApi.list({ universe: 'true' }),
+    queryKey: ['collections', 'universe', params],
+    queryFn: () => collectionsApi.list({ universe: 'true', ...params }),
   })
 
 export const useLinkUniverse = () => {

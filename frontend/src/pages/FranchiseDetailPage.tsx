@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { WatchStatusIcon } from '@/components/WatchStatusIcon'
+import { UserRatingBadge } from '@/components/UserRatingBadge'
 import { Link } from 'react-router-dom'
 
 export default function FranchiseDetailPage() {
@@ -220,7 +222,12 @@ export default function FranchiseDetailPage() {
                     key={media.id}
                     className="flex items-center justify-between gap-3 rounded border p-2"
                   >
-                    <span className="text-sm truncate">{media.title}</span>
+                    <span className="text-sm truncate">
+                      {media.title}
+                      {media.year_start && (
+                        <span className="ml-1 text-xs text-muted-foreground">{media.year_start}</span>
+                      )}
+                    </span>
                     <Button size="sm" variant="outline" onClick={() => handleAddItem(media.id)}>
                       Добавить
                     </Button>
@@ -231,7 +238,7 @@ export default function FranchiseDetailPage() {
           </div>
 
           <div className="space-y-2">
-            {franchise.items?.map((item: { id: number; media_entry_detail: { id: number; title: string; poster_url?: string; poster_local?: string; media_type: string; year_start: number | null }; position: number }, index: number) => (
+            {franchise.items?.map((item: { id: number; media_entry_detail: MediaEntry; position: number }, index: number) => (
           <Card key={item.id}>
             <CardContent className="p-3 flex items-center gap-4">
               <div className="flex flex-col gap-1">
@@ -248,9 +255,11 @@ export default function FranchiseDetailPage() {
                 ) : null}
                 <div className="min-w-0">
                   <p className="font-medium break-words">{item.media_entry_detail.title}</p>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
+                    <WatchStatusIcon status={item.media_entry_detail.my_status} />
                     <Badge variant="outline" className="text-xs">{item.media_entry_detail.media_type}</Badge>
                     {item.media_entry_detail.year_start && <Badge variant="outline" className="text-xs">{item.media_entry_detail.year_start}</Badge>}
+                    <UserRatingBadge value={item.media_entry_detail.my_rating} />
                   </div>
                 </div>
               </Link>

@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
@@ -29,8 +30,15 @@ class CollectionViewSet(ModelViewSet):
         if self.action == "list":
             universe = self.request.query_params.get("universe")
             if universe and universe.lower() in ("1", "true"):
-                return queryset.filter(is_universe=True)
-            return queryset.filter(is_universe=False)
+                queryset = queryset.filter(is_universe=True)
+            else:
+                queryset = queryset.filter(is_universe=False)
+            query = self.request.query_params.get("q")
+            if query:
+                queryset = queryset.filter(
+                    Q(name__icontains=query) | Q(description__icontains=query)
+                )
+            return queryset
         return queryset
 
     def get_serializer_class(self):

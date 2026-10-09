@@ -1,10 +1,18 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Settings } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export function AppLayout() {
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      'rounded-md px-3 py-2 text-base transition-colors hover:bg-accent hover:text-accent-foreground',
+      isActive ? 'bg-accent font-medium text-accent-foreground' : 'text-foreground',
+    )
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -17,12 +25,20 @@ export function AppLayout() {
           ОКИД
         </h1>
         <nav className="flex flex-col gap-2">
-          <Link to="/" className="text-base hover:underline">Кино-дела</Link>
-          <Link to="/collections" className="text-base hover:underline">Фонд кино‑дел</Link>
-          <Link to="/franchises" className="text-base hover:underline">Франшизы</Link>
-          <a href="/admin/" className="text-base hover:underline">Настройки</a>
+          <NavLink to="/" end className={linkClass}>Кино-дела</NavLink>
+          <NavLink to="/collections" className={linkClass}>Фонд кино‑дел</NavLink>
+          <NavLink to="/franchises" className={linkClass}>Франшизы</NavLink>
         </nav>
-        <div className="mt-auto">
+        <div className="mt-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            asChild
+            title="Настройки"
+            aria-label="Настройки"
+          >
+            <a href="/admin/"><Settings /></a>
+          </Button>
           <Button variant="outline" size="sm" onClick={() => { logout(); navigate('/login') }}>
             Выйти
           </Button>

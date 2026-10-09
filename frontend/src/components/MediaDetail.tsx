@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { WatchStatusIcon, watchStatusLabels } from '@/components/WatchStatusIcon'
+import { UserRatingBadge } from '@/components/UserRatingBadge'
 import { SiteRating } from '@/components/SiteRating'
 import { UserRating } from '@/components/UserRating'
 import { cn } from '@/lib/utils'
@@ -469,7 +470,8 @@ export function MediaDetail({
                       ) : null}
                       <div className="min-w-0">
                         <p className="font-medium break-words">{item.media_entry_detail.title}</p>
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1">
+                          <WatchStatusIcon status={item.media_entry_detail.my_status} />
                           <Badge variant="outline" className="text-xs">
                             {mediaTypeLabels[item.media_entry_detail.media_type] || item.media_entry_detail.media_type}
                           </Badge>
@@ -478,6 +480,7 @@ export function MediaDetail({
                               {item.media_entry_detail.year_start}
                             </Badge>
                           )}
+                          <UserRatingBadge value={item.media_entry_detail.my_rating} />
                         </div>
                       </div>
                     </Link>
