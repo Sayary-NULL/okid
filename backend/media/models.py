@@ -78,10 +78,9 @@ class MediaEntry(models.Model):
     series_length = models.IntegerField(null=True, blank=True)
     status = models.CharField(max_length=50, blank=True, default="")
 
-    external_kp_id = models.CharField(max_length=50, blank=True, default="")
-    external_imdb_id = models.CharField(max_length=50, blank=True, default="")
-    external_tmdb_id = models.CharField(max_length=50, blank=True, default="")
+    external_pk_id = models.CharField(max_length=50, blank=True, default="")
     external_shikimori_id = models.CharField(max_length=50, blank=True, default="")
+    external_links = models.JSONField(default=list, blank=True)
 
     rating_kp = models.FloatField(null=True, blank=True)
     rating_imdb = models.FloatField(null=True, blank=True)

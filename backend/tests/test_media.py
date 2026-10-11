@@ -342,3 +342,363 @@ class TestMedia:
         MediaEntry.objects.create(user=other, title="Secret")
         resp = auth_client.get("/api/media/")
         assert all(e["title"] != "Secret" for e in resp.data["results"])
+
+    def test_import_creates_entry(self, auth_client):
+        resp = auth_client.post(
+            "/api/import/",
+            {
+                "title": "Imported",
+                "media_type": "movie",
+                "external_pk_id": "777",
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data["created"] is True
+        assert resp.data["entry"]["title"] == "Imported"
+
+    def test_import_duplicate_pk_id(self, auth_client):
+        user = auth_client.user
+        existing = MediaEntry.objects.create(
+            user=user, title="Existing", external_pk_id="666"
+        )
+        resp = auth_client.post(
+            "/api/import/",
+            {
+                "title": "Duplicate",
+                "media_type": "movie",
+                "external_pk_id": "666",
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["created"] is False
+        assert resp.data["entry"]["id"] == existing.id
+        assert MediaEntry.objects.filter(user=user).count() == 1
+
+    def test_import_duplicate_shikimori_id(self, auth_client):
+        user = auth_client.user
+        existing = MediaEntry.objects.create(
+            user=user, title="Anime", external_shikimori_id="31240"
+        )
+        resp = auth_client.post(
+            "/api/import/",
+            {
+                "title": "Anime Duplicate",
+                "media_type": "series",
+                "external_shikimori_id": "31240",
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["created"] is False
+        assert resp.data["entry"]["id"] == existing.id
+        assert MediaEntry.objects.filter(user=user).count() == 1
+
+    def test_import_duplicate_only_within_user(self, auth_client):
+        other = User.objects.create_user("other", password="pass12345")
+        MediaEntry.objects.create(
+            user=other, title="Other", external_pk_id="666"
+        )
+        resp = auth_client.post(
+            "/api/import/",
+            {
+                "title": "Mine",
+                "media_type": "movie",
+                "external_pk_id": "666",
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data["created"] is True
+
+    def test_import_without_external_ids_not_deduplicated(self, auth_client):
+        user = auth_client.user
+        MediaEntry.objects.create(user=user, title="Manual")
+        resp = auth_client.post(
+            "/api/import/",
+            {"title": "Manual", "media_type": "movie"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data["created"] is True
+
+    def test_update_external_ids(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="External Ids")
+        resp = auth_client.patch(
+            f"/api/media/{entry.id}/",
+            {
+                "external_pk_id": "666",
+                "external_shikimori_id": "31240",
+            },
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.external_pk_id == "666"
+        assert entry.external_shikimori_id == "31240"
+
+    def test_update_external_links(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="External Links")
+        links = [
+            {"name": "IMDb", "icon": "imdb", "url": "https://www.imdb.com/title/tt1/"},
+        ]
+        resp = auth_client.patch(
+            f"/api/media/{entry.id}/", {"external_links": links}, format="json"
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.external_links == links
+
+    def test_clear_external_ids(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(
+            user=user, title="Clear", external_pk_id="666"
+        )
+        resp = auth_client.patch(
+            f"/api/media/{entry.id}/", {"external_pk_id": ""}
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.external_pk_id == ""
+
+    def test_reimport_without_source(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="No Source")
+        resp = auth_client.post(f"/api/media/{entry.id}/reimport/", {})
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_reimport_missing_archive_id(self, auth_client):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(user=user, title="No Archive Id")
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/reimport/", {"source": "poiskkino"}
+        )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_reimport_poiskkino(self, auth_client, monkeypatch):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(
+            user=user,
+            title="Old",
+            external_pk_id="666",
+            poster_url="https://old.example/poster.jpg",
+        )
+        monkeypatch.setattr(
+            "media.views._fetch_poiskkino_movie",
+            lambda movie_id: {
+                "id": 666,
+                "name": "New Name",
+                "description": "New Description",
+                "poster": {"url": "https://img.example/poster.jpg"},
+                "rating": {"kp": 7.1, "imdb": 8.2, "tmdb": 6.3},
+                "externalId": {"imdb": "tt1", "tmdb": 9},
+            },
+        )
+
+        preview = auth_client.get(
+            f"/api/media/{entry.id}/reimport/?source=poiskkino"
+        )
+        assert preview.status_code == status.HTTP_200_OK
+        assert preview.data["title"] == "New Name"
+        icons = {link["icon"] for link in preview.data["external_links"]}
+        assert {"kp", "imdb", "tmdb"} <= icons
+
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/reimport/",
+            {
+                "source": "poiskkino",
+                "fields": ["title", "description", "poster_url", "links", "ratings"],
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.title == "New Name"
+        assert entry.description == "New Description"
+        assert entry.poster_url == "https://img.example/poster.jpg"
+        assert entry.rating_kp == 7.1
+        assert entry.rating_imdb == 8.2
+        assert entry.rating_tmdb == 6.3
+        by_icon = {link["icon"]: link for link in entry.external_links}
+        assert by_icon["kp"]["url"] == "https://www.kinopoisk.ru/film/666/"
+        assert by_icon["imdb"]["url"] == "https://www.imdb.com/title/tt1/"
+        assert by_icon["tmdb"]["url"] == "https://www.themoviedb.org/movie/9"
+
+    def test_reimport_merges_links(self, auth_client, monkeypatch):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(
+            user=user,
+            title="Merge",
+            external_pk_id="666",
+            external_links=[
+                {"name": "Shikimori", "icon": "shikimori", "url": "https://s/a"},
+                {"name": "IMDb", "icon": "imdb", "url": "https://old/imdb"},
+            ],
+        )
+        monkeypatch.setattr(
+            "media.views._fetch_poiskkino_movie",
+            lambda movie_id: {
+                "id": 666,
+                "name": "Merge",
+                "rating": {},
+                "externalId": {"imdb": "tt2"},
+            },
+        )
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/reimport/",
+            {"source": "poiskkino", "fields": ["links"]},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        by_icon = {link["icon"]: link["url"] for link in entry.external_links}
+        assert by_icon["shikimori"] == "https://s/a"
+        assert by_icon["imdb"] == "https://www.imdb.com/title/tt2/"
+
+    def test_reimport_keeps_title_when_not_selected(self, auth_client, monkeypatch):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(
+            user=user, title="Keep Me", external_pk_id="666"
+        )
+        monkeypatch.setattr(
+            "media.views._fetch_poiskkino_movie",
+            lambda movie_id: {
+                "id": 666,
+                "name": "Remote Name",
+                "rating": {"kp": 5.0},
+                "externalId": {},
+            },
+        )
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/reimport/",
+            {"source": "poiskkino", "fields": []},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.title == "Keep Me"
+        assert entry.rating_kp is None
+
+    def test_reimport_selected_ratings_only(self, auth_client, monkeypatch):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(
+            user=user, title="Keep Me", external_pk_id="666"
+        )
+        monkeypatch.setattr(
+            "media.views._fetch_poiskkino_movie",
+            lambda movie_id: {
+                "id": 666,
+                "name": "Remote Name",
+                "rating": {"kp": 5.0},
+                "externalId": {},
+            },
+        )
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/reimport/",
+            {"source": "poiskkino", "fields": ["ratings"]},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.title == "Keep Me"
+        assert entry.rating_kp == 5.0
+
+    def test_reimport_shikimori(self, auth_client, monkeypatch):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(
+            user=user, title="Anime", external_shikimori_id="31240"
+        )
+        monkeypatch.setattr(
+            "media.views._fetch_shikimori_anime",
+            lambda anime_id: {
+                "id": "31240",
+                "name": "Re:Zero",
+                "russian": "Re:Zero",
+                "description": "Описание",
+                "score": 8.4,
+                "poster": {"originalUrl": "https://shiki.example/p.jpg"},
+                "url": "https://shikimori.io/animes/z31240-re-zero",
+            },
+        )
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/reimport/",
+            {"source": "shikimori", "fields": ["description", "links", "ratings"]},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        assert entry.rating_shikimori == 8.4
+        assert entry.description == "Описание"
+        by_icon = {link["icon"]: link["url"] for link in entry.external_links}
+        assert by_icon["shikimori"] == "https://shikimori.io/animes/z31240-re-zero"
+
+    def test_build_external_links_series(self):
+        from media.views import _build_external_links
+
+        links = _build_external_links(
+            kp_id="10", imdb_id="tt10", tmdb_id="20", is_series=True
+        )
+        by_icon = {link["icon"]: link["url"] for link in links}
+        assert by_icon["kp"] == "https://www.kinopoisk.ru/series/10/"
+        assert by_icon["tmdb"] == "https://www.themoviedb.org/tv/20"
+        assert len(links) == 3
+
+    def test_watchability_links(self):
+        from media.views import _watchability_links
+
+        item = {
+            "watchability": {
+                "items": [
+                    {
+                        "name": "Кинопоиск",
+                        "url": "https://www.kinopoisk.ru/film/666/watch/",
+                        "logo": {"url": "https://logo/1.png"},
+                    },
+                    {"name": "Без ссылки"},
+                ]
+            }
+        }
+        assert _watchability_links(item) == [
+            {
+                "name": "Кинопоиск",
+                "icon": "https://logo/1.png",
+                "url": "https://www.kinopoisk.ru/film/666/watch/",
+            }
+        ]
+        assert _watchability_links({}) == []
+
+    def test_reimport_adds_watchability_links(self, auth_client, monkeypatch):
+        user = auth_client.user
+        entry = MediaEntry.objects.create(
+            user=user, title="Cinema", external_pk_id="666"
+        )
+        monkeypatch.setattr(
+            "media.views._fetch_poiskkino_movie",
+            lambda movie_id: {
+                "id": 666,
+                "name": "Cinema",
+                "rating": {},
+                "externalId": {},
+                "watchability": {
+                    "items": [
+                        {
+                            "name": "Иви",
+                            "url": "https://www.ivi.ru/watch/666",
+                            "logo": {"url": "https://logo/ivi.png"},
+                        }
+                    ]
+                },
+            },
+        )
+        resp = auth_client.post(
+            f"/api/media/{entry.id}/reimport/",
+            {"source": "poiskkino", "fields": ["links"]},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        entry.refresh_from_db()
+        links = {link["name"]: link for link in entry.external_links}
+        assert links["Иви"]["url"] == "https://www.ivi.ru/watch/666"
+        assert links["Иви"]["icon"] == "https://logo/ivi.png"

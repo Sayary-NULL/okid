@@ -1,5 +1,5 @@
 import api from './client'
-import type { AuthTokens, MediaEntry, MediaLetter, PaginatedResponse } from '@/types'
+import type { AuthTokens, MediaEntry, MediaLetter, PaginatedResponse, ReimportPreview } from '@/types'
 
 export const authApi = {
   register: (data: { username: string; password: string }) =>
@@ -62,6 +62,17 @@ export const mediaApi = {
 
   removePoster: (id: number) =>
     api.delete(`/media/${id}/poster/`),
+
+  reimportPreview: (id: number, source: 'poiskkino' | 'shikimori') =>
+    api
+      .get<ReimportPreview>(`/media/${id}/reimport/`, { params: { source } })
+      .then((r) => r.data),
+
+  reimport: (
+    id: number,
+    data: { source: 'poiskkino' | 'shikimori'; fields: string[] },
+  ) =>
+    api.post(`/media/${id}/reimport/`, data).then((r) => r.data),
 
   history: {
     list: (id: number) =>

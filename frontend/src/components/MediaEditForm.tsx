@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { ReimportDialog } from '@/components/ReimportDialog'
 import { useState, useEffect, useRef } from 'react'
 
 export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: () => void }) {
@@ -28,6 +29,9 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
   const [yearEnd, setYearEnd] = useState('')
   const [isAnime, setIsAnime] = useState(false)
   const [posterUrl, setPosterUrl] = useState('')
+  const [externalPkId, setExternalPkId] = useState('')
+  const [externalShikimoriId, setExternalShikimoriId] = useState('')
+  const [reimportOpen, setReimportOpen] = useState(false)
 
   useEffect(() => {
     if (entry) {
@@ -39,6 +43,8 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
       setYearEnd(entry.year_end?.toString() || '')
       setIsAnime(entry.is_anime)
       setPosterUrl(entry.poster_url || '')
+      setExternalPkId(entry.external_pk_id || '')
+      setExternalShikimoriId(entry.external_shikimori_id || '')
     }
   }, [entry])
 
@@ -79,6 +85,8 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
         year_end: yearEnd ? Number(yearEnd) : null,
         is_anime: isAnime,
         poster_url: posterUrl,
+        external_pk_id: externalPkId.trim(),
+        external_shikimori_id: externalShikimoriId.trim(),
       },
     })
     onDone()
@@ -191,6 +199,41 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
           <Label>Описание</Label>
           <Textarea ref={descriptionRef} className="max-h-[50vh] resize-none overflow-y-auto" value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
+        <div className="space-y-3 rounded-lg border p-4">
+          <div>
+            <Label>Внешние базы</Label>
+            <p className="text-xs text-muted-foreground">
+              ID записи во внешних базах (ПоискКино и Шикимори). Из них при импорте
+              создаются ссылки. Очистите поле, чтобы удалить.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="external_pk_id">ПоискКино ID</Label>
+              <Input
+                id="external_pk_id"
+                value={externalPkId}
+                onChange={(e) => setExternalPkId(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="external_shikimori_id">Шикимори ID</Label>
+              <Input
+                id="external_shikimori_id"
+                value={externalShikimoriId}
+                onChange={(e) => setExternalShikimoriId(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!externalPkId.trim() && !externalShikimoriId.trim()}
+            onClick={() => setReimportOpen(true)}
+          >
+            Реимпорт
+          </Button>
+        </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="flex-1" onClick={onDone}>
             Отмена
@@ -198,6 +241,15 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
           <Button type="submit" className="flex-1">Сохранить</Button>
         </div>
       </form>
+
+      <ReimportDialog
+        mediaId={mediaId}
+        open={reimportOpen}
+        onOpenChange={setReimportOpen}
+        hasPk={!!externalPkId.trim()}
+        hasShikimori={!!externalShikimoriId.trim()}
+        hasLocalPoster={!!entry?.poster_local}
+      />
     </div>
   )
 }

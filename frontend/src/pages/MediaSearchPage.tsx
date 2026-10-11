@@ -37,7 +37,7 @@ export default function MediaSearchPage() {
   }
 
   const handleImport = async (result: SearchResult) => {
-    const entry = await importMedia.mutateAsync({
+    const { entry, created } = await importMedia.mutateAsync({
       title: result.title,
       original_title: result.original_title || '',
       media_type: result.media_type || (type === 'all' ? 'movie' : type),
@@ -51,10 +51,9 @@ export default function MediaSearchPage() {
       rating_imdb: result.rating_imdb,
       rating_tmdb: result.rating_tmdb,
       rating_shikimori: result.rating_shikimori,
-      external_kp_id: result.external_kp_id || '',
-      external_imdb_id: result.external_imdb_id || '',
-      external_tmdb_id: result.external_tmdb_id || '',
+      external_pk_id: result.external_pk_id || '',
       external_shikimori_id: result.external_shikimori_id || '',
+      external_links: result.external_links || [],
       movie_length: result.movie_length,
       is_series: result.is_series,
       total_series_length: result.total_series_length,
@@ -65,6 +64,9 @@ export default function MediaSearchPage() {
       my_status: 'plan_to_watch',
       download_status: 'none',
     })
+    if (!created) {
+      alert('Это медиа уже есть в архиве — открываю существующую запись.')
+    }
     navigate(`/media/${entry.id}`)
   }
 

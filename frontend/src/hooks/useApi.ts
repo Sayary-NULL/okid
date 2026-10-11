@@ -114,6 +114,32 @@ export const useRemoveMediaPoster = () => {
   })
 }
 
+export const useReimportPreview = (
+  id: number,
+  source: 'poiskkino' | 'shikimori',
+  enabled = true,
+) =>
+  useQuery({
+    queryKey: ['media', id, 'reimport', source],
+    queryFn: () => mediaApi.reimportPreview(id, source),
+    enabled: !!id && enabled,
+    retry: false,
+  })
+
+export const useReimport = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number
+      data: { source: 'poiskkino' | 'shikimori'; fields: string[] }
+    }) => mediaApi.reimport(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['media'] }),
+  })
+}
+
 export const useHistory = (mediaId: number) =>
   useQuery({
     queryKey: ['media', mediaId, 'history'],

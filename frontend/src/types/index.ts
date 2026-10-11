@@ -14,6 +14,12 @@ export interface Informer {
   name: string
 }
 
+export interface ExternalLink {
+  name: string
+  icon: string
+  url: string
+}
+
 export type MediaType = 'movie' | 'series'
 export type MyStatus = 'plan_to_watch' | 'watching' | 'dropped' | 'completed'
 export type DownloadStatus = 'none' | 'need_download' | 'downloaded'
@@ -39,10 +45,9 @@ export interface MediaEntry {
   total_series_length: number | null
   series_length: number | null
   status: string
-  external_kp_id: string
-  external_imdb_id: string
-  external_tmdb_id: string
+  external_pk_id: string
   external_shikimori_id: string
+  external_links: ExternalLink[]
   rating_kp: number | null
   rating_imdb: number | null
   rating_tmdb: number | null
@@ -120,14 +125,25 @@ export interface SearchResult {
   is_series: boolean
   total_series_length: number | null
   series_length: number | null
-  external_kp_id: string
-  external_imdb_id: string
-  external_tmdb_id: string
+  external_pk_id: string
   external_shikimori_id: string
+  external_links: ExternalLink[]
   genres: string[]
   countries: string[]
   year_start: number | null
   year_end: number | null
+}
+
+export interface ReimportPreview {
+  source: 'poiskkino' | 'shikimori'
+  title: string
+  description: string
+  poster_url: string
+  rating_kp?: number | null
+  rating_imdb?: number | null
+  rating_tmdb?: number | null
+  rating_shikimori?: number | null
+  external_links?: ExternalLink[]
 }
 
 export interface PaginatedResponse<T> {

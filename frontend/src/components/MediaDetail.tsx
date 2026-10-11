@@ -5,7 +5,7 @@ import {
   useDeleteHistory, useMediaList, useLinkUniverse,
   useCollectionDetail, useRemoveCollectionItem, useUpdateItemPosition,
 } from '@/hooks/useApi'
-import type { CollectionItem, DownloadStatus, Informer, MyStatus } from '@/types'
+import type { CollectionItem, DownloadStatus, ExternalLink as ExternalLinkItem, Informer, MyStatus } from '@/types'
 import { Pencil, Trash2, Star, X, Download, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,8 +17,13 @@ import { UserRating } from '@/components/UserRating'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import { useState } from 'react'
+import { Label } from '@/components/ui/label'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import kpIcon from '@/assets/kinopoisk.ico'
+import imdbIcon from '@/assets/imdb.png'
+import tmdbIcon from '@/assets/tmdb.ico'
+import shikimoriIcon from '@/assets/shikimori.ico'
 
 const statusOrder: MyStatus[] = ['plan_to_watch', 'watching', 'dropped', 'completed']
 const mediaTypeLabels: Record<string, string> = {
@@ -69,6 +74,12 @@ export function MediaDetail({
   const [informerName, setInformerName] = useState('')
   const [universeQuery, setUniverseQuery] = useState('')
   const [linkError, setLinkError] = useState('')
+  const [editingLinks, setEditingLinks] = useState(false)
+  const [linksDraft, setLinksDraft] = useState<ExternalLinkItem[]>([])
+
+  useEffect(() => {
+    setEditingLinks(false)
+  }, [mediaId])
 
   const universeId = entry?.universe_collection_id ?? 0
   const { data: franchise } = useCollectionDetail(universeId)
@@ -88,6 +99,14 @@ export function MediaDetail({
   const universeCandidates = (universeResults?.results || []).filter(
     (m: { id: number }) => m.id !== entry.id && !memberIds.has(m.id),
   )
+
+  const externalIcons: Record<string, string> = {
+    kp: kpIcon,
+    imdb: imdbIcon,
+    tmdb: tmdbIcon,
+    shikimori: shikimoriIcon,
+  }
+  const externalLinks: ExternalLinkItem[] = entry.external_links || []
 
   const handleLinkUniverse = async (mediaEntryId: number) => {
     setLinkError('')
@@ -168,6 +187,37 @@ export function MediaDetail({
       id: mediaId,
       data: { download_status: downloadCycle[entry.download_status as DownloadStatus] },
     })
+  }
+
+  const startEditLinks = () => {
+    setLinksDraft((entry.external_links || []).map((link: ExternalLinkItem) => ({ ...link })))
+    setEditingLinks(true)
+  }
+
+  const updateLinkField = (index: number, field: keyof ExternalLinkItem, value: string) => {
+    setLinksDraft((prev) =>
+      prev.map((link, i) => (i === index ? { ...link, [field]: value } : link)),
+    )
+  }
+
+  const removeLinkDraft = (index: number) => {
+    setLinksDraft((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const addLinkDraft = () => {
+    setLinksDraft((prev) => [...prev, { name: '', icon: '', url: '' }])
+  }
+
+  const saveLinks = async () => {
+    const cleaned = linksDraft
+      .map((link) => ({
+        name: link.name.trim(),
+        icon: link.icon.trim(),
+        url: link.url.trim(),
+      }))
+      .filter((link) => link.name || link.url)
+    await updateMedia.mutateAsync({ id: mediaId, data: { external_links: cleaned } })
+    setEditingLinks(false)
   }
 
   return (
@@ -286,6 +336,7 @@ export function MediaDetail({
           <TabsTrigger value="informers">Информаторы</TabsTrigger>
           <TabsTrigger value="collections">Коллекции</TabsTrigger>
           <TabsTrigger value="related">Связанное</TabsTrigger>
+          <TabsTrigger value="external">Внешние ссылки</TabsTrigger>
         </TabsList>
 
         <TabsContent value="history" className="space-y-3">
@@ -499,6 +550,115 @@ export function MediaDetail({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Медиа пока ни с чем не связано</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="external" className="space-y-3">
+          {editingLinks ? (
+            <div className="space-y-3">
+              <div className="space-y-3">
+                {linksDraft.map((link, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 gap-2 rounded border p-3 sm:grid-cols-[1fr_1.5fr_1fr_auto] sm:items-end"
+                  >
+                    <div className="space-y-1">
+                      <Label>Название</Label>
+                      <Input
+                        value={link.name}
+                        onChange={(e) => updateLinkField(index, 'name', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Ссылка</Label>
+                      <Input
+                        value={link.url}
+                        onChange={(e) => updateLinkField(index, 'url', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Иконка</Label>
+                      <Input
+                        value={link.icon}
+                        onChange={(e) => updateLinkField(index, 'icon', e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => removeLinkDraft(index)}
+                      title="Удалить ссылку"
+                      aria-label="Удалить ссылку"
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={addLinkDraft}>
+                  Добавить ссылку
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingLinks(false)}
+                  disabled={updateMedia.isPending}
+                >
+                  Отмена
+                </Button>
+                <Button
+                  type="button"
+                  onClick={saveLinks}
+                  disabled={updateMedia.isPending}
+                >
+                  Сохранить
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={startEditLinks}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Редактировать
+                </Button>
+              </div>
+              {externalLinks.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {externalLinks.map((link, index) => {
+                    const iconSrc =
+                      externalIcons[link.icon] ||
+                      (link.icon.startsWith('http') ? link.icon : '')
+                    return (
+                      <a
+                        key={`${link.icon}-${index}`}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                      >
+                        {iconSrc && (
+                          <img
+                            src={iconSrc}
+                            alt=""
+                            className="h-4 w-4 rounded object-contain"
+                          />
+                        )}
+                        {link.name}
+                      </a>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Внешние ссылки отсутствуют</p>
+              )}
+            </div>
           )}
         </TabsContent>
       </Tabs>

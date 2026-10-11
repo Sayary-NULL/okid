@@ -407,6 +407,87 @@ class MediaEntryViewSet(ModelViewSet):
         )
         return Response(out.data)
 
+    @action(detail=True, methods=["get", "post"])
+    def reimport(self, request, pk=None):
+        entry = self.get_object()
+        source = request.query_params.get("source") or request.data.get("source")
+
+        if source == "shikimori":
+            archive_id = entry.external_shikimori_id
+            if not archive_id:
+                return Response(
+                    {"error": "У карточки нет id в Шикимори."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            fetch = _fetch_shikimori_anime
+            mapper = _shikimori_reimport_data
+        elif source == "poiskkino":
+            archive_id = entry.external_pk_id
+            if not archive_id:
+                return Response(
+                    {"error": "У карточки нет id в ПоискКино."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            fetch = _fetch_poiskkino_movie
+            is_series = entry.media_type == MediaEntry.MediaType.SERIES
+            mapper = lambda item: _poiskkino_reimport_data(item, is_series)
+        else:
+            return Response(
+                {"error": "Не указан внешний архив."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            payload = mapper(fetch(archive_id))
+        except LookupError as exc:
+            return Response(
+                {"error": str(exc)}, status=status.HTTP_404_NOT_FOUND
+            )
+        except (requests.RequestException, RuntimeError):
+            logger.warning(
+                "Reimport failed for media %s", entry.id, exc_info=True
+            )
+            return Response(
+                {"error": "Не удалось получить данные из внешнего архива."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        if request.method == "GET":
+            return Response(payload)
+
+        fields = request.data.get("fields") or []
+        if isinstance(fields, str):
+            fields = [fields]
+
+        update = {}
+        if "ratings" in fields:
+            update.update(
+                {
+                    key: payload[key]
+                    for key in REIMPORT_RATING_FIELDS
+                    if key in payload
+                }
+            )
+        if "links" in fields and payload.get("external_links"):
+            update["external_links"] = _merge_external_links(
+                entry.external_links, payload["external_links"]
+            )
+        if "title" in fields and payload.get("title"):
+            update["title"] = payload["title"]
+        if "description" in fields:
+            update["description"] = payload.get("description", "")
+        if "poster_url" in fields and not entry.poster_local:
+            update["poster_url"] = payload.get("poster_url", "")
+
+        for attr, value in update.items():
+            setattr(entry, attr, value)
+        entry.save()
+
+        out = MediaEntryDetailSerializer(
+            entry, context=self.get_serializer_context()
+        )
+        return Response(out.data)
+
 
 class InformerViewSet(CreateModelMixin, ListModelMixin, GenericViewSet):
     queryset = Informer.objects.all()
@@ -440,6 +521,158 @@ def _shikimori_matches_year(item, year):
     if start == year:
         return True
     return start <= year <= (end if end is not None else start)
+
+
+def _build_external_links(
+    kp_id="", imdb_id="", tmdb_id="", shikimori_url="", is_series=False
+):
+    links = []
+    if kp_id:
+        kind = "series" if is_series else "film"
+        links.append(
+            {
+                "name": "КиноПоиск",
+                "icon": "kp",
+                "url": f"https://www.kinopoisk.ru/{kind}/{kp_id}/",
+            }
+        )
+    if imdb_id:
+        links.append(
+            {
+                "name": "IMDb",
+                "icon": "imdb",
+                "url": f"https://www.imdb.com/title/{imdb_id}/",
+            }
+        )
+    if tmdb_id:
+        kind = "tv" if is_series else "movie"
+        links.append(
+            {
+                "name": "TMDB",
+                "icon": "tmdb",
+                "url": f"https://www.themoviedb.org/{kind}/{tmdb_id}",
+            }
+        )
+    if shikimori_url:
+        links.append(
+            {
+                "name": "Shikimori",
+                "icon": "shikimori",
+                "url": shikimori_url,
+            }
+        )
+    return links
+
+
+def _merge_external_links(existing, new_links):
+    new_icons = {link.get("icon") for link in new_links}
+    merged = [
+        link for link in (existing or []) if link.get("icon") not in new_icons
+    ]
+    merged.extend(new_links)
+    return merged
+
+
+def _watchability_links(item):
+    links = []
+    for entry in (item.get("watchability") or {}).get("items") or []:
+        url = entry.get("url")
+        if not url:
+            continue
+        links.append(
+            {
+                "name": entry.get("name") or "Смотреть",
+                "icon": (entry.get("logo") or {}).get("url") or "",
+                "url": url,
+            }
+        )
+    return links
+
+
+def _fetch_poiskkino_movie(movie_id):
+    api_key = settings.POISKKINO_API_KEY
+    if not api_key:
+        raise RuntimeError("PoiskKino API key is not configured.")
+    resp = requests.get(
+        f"https://api.poiskkino.dev/v1.5/movie/{movie_id}",
+        headers={"X-API-KEY": api_key},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _poiskkino_reimport_data(item, is_series=False):
+    external = item.get("externalId") or {}
+    links = _build_external_links(
+        kp_id=str(item.get("id", "")),
+        imdb_id=external.get("imdb", "") or "",
+        tmdb_id=str(external.get("tmdb", "") or ""),
+        is_series=is_series,
+    )
+    links.extend(_watchability_links(item))
+    return {
+        "source": "poiskkino",
+        "title": item.get("name", "") or "",
+        "description": item.get("description") or "",
+        "poster_url": (item.get("poster") or {}).get("url") or "",
+        "rating_kp": (item.get("rating") or {}).get("kp"),
+        "rating_imdb": (item.get("rating") or {}).get("imdb"),
+        "rating_tmdb": (item.get("rating") or {}).get("tmdb"),
+        "external_links": links,
+    }
+
+
+def _fetch_shikimori_anime(anime_id):
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": settings.SHIKIMORI_APP_NAME,
+    }
+    query = """
+        query ($ids: String) {
+            animes(ids: $ids) {
+                id
+                name
+                russian
+                description
+                score
+                poster { originalUrl }
+                url
+            }
+        }
+    """
+    resp = requests.post(
+        "https://shikimori.io/api/graphql",
+        headers=headers,
+        json={"query": query, "variables": {"ids": str(anime_id)}},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    animes = (resp.json().get("data") or {}).get("animes") or []
+    if not animes:
+        raise LookupError("Shikimori anime not found.")
+    return animes[0]
+
+
+def _shikimori_reimport_data(item):
+    return {
+        "source": "shikimori",
+        "title": item.get("russian") or item.get("name") or "",
+        "description": item.get("description") or "",
+        "poster_url": (item.get("poster") or {}).get("originalUrl") or "",
+        "rating_shikimori": item.get("score"),
+        "external_links": _build_external_links(
+            shikimori_url=item.get("url") or ""
+        ),
+    }
+
+
+REIMPORT_RATING_FIELDS = (
+    "rating_kp",
+    "rating_imdb",
+    "rating_tmdb",
+    "rating_shikimori",
+)
 
 
 class SearchView(APIView):
@@ -507,6 +740,14 @@ class SearchView(APIView):
                     item for item in docs if _poiskkino_matches_year(item, year_int)
                 ]
             for item in docs:
+                external = item.get("externalId") or {}
+                external_links = _build_external_links(
+                    kp_id=str(item.get("id", "")),
+                    imdb_id=external.get("imdb", "") or "",
+                    tmdb_id=str(external.get("tmdb", "") or ""),
+                    is_series=item.get("type") != "movie",
+                )
+                external_links.extend(_watchability_links(item))
                 results.append(
                     {
                         "external_id": item.get("id"),
@@ -529,9 +770,8 @@ class SearchView(APIView):
                         "is_series": item.get("isSeries", False),
                         "total_series_length": item.get("totalSeriesLength"),
                         "series_length": item.get("seriesLength"),
-                        "external_kp_id": str(item.get("id", "")),
-                        "external_imdb_id": (item.get("externalId") or {}).get("imdb", ""),
-                        "external_tmdb_id": str((item.get("externalId") or {}).get("tmdb", "")),
+                        "external_pk_id": str(item.get("id", "")),
+                        "external_links": external_links,
                         "genres": [
                             g["name"] for g in (item.get("genres") or [])
                         ],
@@ -576,6 +816,7 @@ class SearchView(APIView):
                     releasedOn { year }
                     poster { originalUrl }
                     genres { name russian }
+                    url
                 }
             }
         """
@@ -621,6 +862,9 @@ class SearchView(APIView):
                         "status": item.get("status", ""),
                         "is_series": not is_movie,
                         "external_shikimori_id": str(item.get("id", "")),
+                        "external_links": _build_external_links(
+                            shikimori_url=item.get("url") or ""
+                        ),
                         "genres": [
                             g.get("russian") or g.get("name", "")
                             for g in (item.get("genres") or [])
@@ -645,12 +889,44 @@ class ImportView(APIView):
             request.data
         )
 
+        existing = self._find_existing(request.user, data)
+        if existing is not None:
+            return Response(
+                {
+                    "entry": MediaEntryDetailSerializer(
+                        existing, context={"request": request}
+                    ).data,
+                    "created": False,
+                }
+            )
+
         serializer = MediaEntryWriteSerializer(
             data=data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         entry = serializer.save()
         return Response(
-            MediaEntryDetailSerializer(entry).data,
+            {
+                "entry": MediaEntryDetailSerializer(
+                    entry, context={"request": request}
+                ).data,
+                "created": True,
+            },
             status=status.HTTP_201_CREATED,
         )
+
+    @staticmethod
+    def _find_existing(user, data):
+        pk_id = str(data.get("external_pk_id") or "").strip()
+        if pk_id:
+            existing = MediaEntry.objects.filter(
+                user=user, external_pk_id=pk_id
+            ).first()
+            if existing is not None:
+                return existing
+        shikimori_id = str(data.get("external_shikimori_id") or "").strip()
+        if shikimori_id:
+            return MediaEntry.objects.filter(
+                user=user, external_shikimori_id=shikimori_id
+            ).first()
+        return None
