@@ -1,5 +1,5 @@
 import api from './client'
-import type { AuthTokens, MediaEntry, MediaLetter, PaginatedResponse, ReimportPreview } from '@/types'
+import type { AuthTokens, MediaEntry, MediaLetter, PaginatedResponse, ReimportPreview, Statistics } from '@/types'
 
 export const authApi = {
   register: (data: { username: string; password: string }) =>
@@ -108,8 +108,12 @@ export const importApi = {
     api.post('/import/', data).then((r) => r.data),
 }
 
-export const collectionsApi = {
-  list: (params?: Record<string, string>) =>
+export const statsApi = {
+  calculate: () => api.get<Statistics>('/stats/').then((r) => r.data),
+  recalculate: () => api.post('/stats/recalculate/').then((r) => r.data),
+}
+
+export const collectionsApi = {  list: (params?: Record<string, string>) =>
     api.get('/collections/', { params }).then((r) => r.data),
 
   detail: (id: number) =>

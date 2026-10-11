@@ -160,3 +160,39 @@ export interface AuthTokens {
   access: string
   refresh: string
 }
+
+export type StatSlice =
+  | 'movie_anime'
+  | 'movie_not_anime'
+  | 'series_anime'
+  | 'series_not_anime'
+
+export type StatDimension =
+  | 'rating'
+  | 'my_status'
+  | 'informer'
+  | 'favorite'
+  | 'download_status'
+  | 'genre'
+  | 'year'
+
+export interface StatBucket {
+  bucket: string
+  label: string
+  counts: Record<StatSlice, number>
+  total: number
+}
+
+export interface StatSummary {
+  total: number
+  anime: number
+  not_anime: number
+}
+
+export interface Statistics {
+  summary: {
+    movie: StatSummary
+    series: StatSummary
+  }
+  dimensions: Record<StatDimension, StatBucket[]>
+}

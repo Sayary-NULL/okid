@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "accounts",
     "media",
     "shelves",
+    "stats",
 ]
 
 MIDDLEWARE = [

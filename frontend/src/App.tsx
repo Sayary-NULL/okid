@@ -13,6 +13,7 @@ import CollectionsPage from '@/pages/CollectionsPage'
 import CollectionDetailPage from '@/pages/CollectionDetailPage'
 import FranchisesPage from '@/pages/FranchisesPage'
 import FranchiseDetailPage from '@/pages/FranchiseDetailPage'
+import StatisticsPage from '@/pages/StatisticsPage'
 
 const queryClient = new QueryClient()
 
@@ -34,6 +35,7 @@ function App() {
               <Route path="/collections/:id" element={<CollectionDetailPage />} />
               <Route path="/franchises" element={<FranchisesPage />} />
               <Route path="/franchises/:id" element={<FranchiseDetailPage />} />
+              <Route path="/statistics" element={<StatisticsPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />

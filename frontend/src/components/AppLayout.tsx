@@ -28,6 +28,7 @@ export function AppLayout() {
           <NavLink to="/" end className={linkClass}>Кино-дела</NavLink>
           <NavLink to="/collections" className={linkClass}>Фонд кино‑дел</NavLink>
           <NavLink to="/franchises" className={linkClass}>Франшизы</NavLink>
+          <NavLink to="/statistics" className={linkClass}>Статистика</NavLink>
         </nav>
         <div className="mt-auto flex items-center gap-2">
           <Button

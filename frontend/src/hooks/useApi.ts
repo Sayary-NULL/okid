@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { mediaApi, genresApi, countriesApi, informersApi, searchApi, importApi, collectionsApi } from '@/api/endpoints'
+import { mediaApi, genresApi, countriesApi, informersApi, searchApi, importApi, collectionsApi, statsApi } from '@/api/endpoints'
 import type { MediaEntry, PaginatedResponse } from '@/types'
 
 export const useGenres = () =>
@@ -308,5 +308,16 @@ export const useUpdateItemPosition = () => {
       collectionsApi.updateItemPosition(collectionId, itemId, position),
     onSuccess: (_, vars) =>
       qc.invalidateQueries({ queryKey: ['collections', vars.collectionId] }),
+  })
+}
+
+export const useStatistics = () =>
+  useQuery({ queryKey: ['stats'], queryFn: statsApi.calculate })
+
+export const useRecalculateStatistics = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: statsApi.recalculate,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['stats'] }),
   })
 }
