@@ -249,7 +249,6 @@ export function MediaDetail({
           <div className="flex flex-wrap gap-1">
             {entry.genres?.map((g: { id: number; name: string }) => <Badge key={g.id} variant="outline">{g.name}</Badge>)}
           </div>
-          {entry.description && <p className="text-sm">{entry.description}</p>}
           <div className="flex flex-wrap gap-3">
             {entry.rating_kp && <SiteRating site="kp" value={entry.rating_kp} />}
             {entry.rating_imdb && <SiteRating site="imdb" value={entry.rating_imdb} />}
@@ -330,14 +329,23 @@ export function MediaDetail({
         </div>
       </div>
 
-      <Tabs defaultValue="history">
+      <Tabs defaultValue="info">
         <TabsList>
+          <TabsTrigger value="info">Информация</TabsTrigger>
           <TabsTrigger value="history">История</TabsTrigger>
           <TabsTrigger value="informers">Информаторы</TabsTrigger>
           <TabsTrigger value="collections">Коллекции</TabsTrigger>
           <TabsTrigger value="related">Связанное</TabsTrigger>
           <TabsTrigger value="external">Внешние ссылки</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="info" className="space-y-3">
+          {entry.description ? (
+            <p className="text-sm whitespace-pre-line">{entry.description}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Описание отсутствует</p>
+          )}
+        </TabsContent>
 
         <TabsContent value="history" className="space-y-3">
           <div className="flex flex-wrap gap-2">
