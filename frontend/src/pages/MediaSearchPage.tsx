@@ -65,7 +65,7 @@ export default function MediaSearchPage() {
       download_status: 'none',
     })
     if (!created) {
-      alert('Это медиа уже есть в архиве — открываю существующую запись.')
+      alert('Запись о текущем медиа уже существует!')
     }
     navigate(`/media/${entry.id}`)
   }
