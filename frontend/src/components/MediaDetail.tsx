@@ -3,7 +3,7 @@ import {
   useCreateHistory, useCreateInformer, useDeleteInformer,
   useToggleFavorite, useInformersList, useUpdateMedia,
   useDeleteHistory, useMediaList, useLinkUniverse,
-  useCollectionDetail, useRemoveCollectionItem, useUpdateItemPosition,
+  useCollectionDetail, useFranchises, useAddCollectionItem,
 } from '@/hooks/useApi'
 import type { CollectionItem, DownloadStatus, ExternalLink as ExternalLinkItem, Informer, MyStatus } from '@/types'
 import { Pencil, Trash2, Star, X, Download, ExternalLink } from 'lucide-react'
@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { WatchStatusIcon, watchStatusLabels } from '@/components/WatchStatusIcon'
-import { UserRatingBadge } from '@/components/UserRatingBadge'
 import { SiteRating } from '@/components/SiteRating'
 import { UserRating } from '@/components/UserRating'
 import { cn } from '@/lib/utils'
@@ -68,17 +67,24 @@ export function MediaDetail({
   const toggleFavorite = useToggleFavorite()
   const updateMedia = useUpdateMedia()
   const linkUniverse = useLinkUniverse()
-  const removeUniverseItem = useRemoveCollectionItem()
-  const updateUniversePosition = useUpdateItemPosition()
+  const addFranchiseItem = useAddCollectionItem()
 
   const [informerName, setInformerName] = useState('')
   const [universeQuery, setUniverseQuery] = useState('')
+  const [franchiseQuery, setFranchiseQuery] = useState('')
+  const [franchiseSearchOpen, setFranchiseSearchOpen] = useState(false)
+  const [mediaSearchOpen, setMediaSearchOpen] = useState(false)
   const [linkError, setLinkError] = useState('')
   const [editingLinks, setEditingLinks] = useState(false)
   const [linksDraft, setLinksDraft] = useState<ExternalLinkItem[]>([])
 
   useEffect(() => {
     setEditingLinks(false)
+    setFranchiseSearchOpen(false)
+    setMediaSearchOpen(false)
+    setUniverseQuery('')
+    setFranchiseQuery('')
+    setLinkError('')
   }, [mediaId])
 
   const universeId = entry?.universe_collection_id ?? 0
@@ -90,6 +96,12 @@ export function MediaDetail({
     trimmedUniverse.length > 0,
   )
 
+  const trimmedFranchise = franchiseQuery.trim()
+  const { data: franchiseResults, isFetching: isFranchiseSearching } = useFranchises(
+    trimmedFranchise ? { q: trimmedFranchise } : undefined,
+    trimmedFranchise.length > 0,
+  )
+
   if (isLoading) return <p className="text-muted-foreground">Загрузка...</p>
   if (!entry) return <p className="text-destructive">Не найдено</p>
 
@@ -99,6 +111,8 @@ export function MediaDetail({
   const universeCandidates = (universeResults?.results || []).filter(
     (m: { id: number }) => m.id !== entry.id && !memberIds.has(m.id),
   )
+  const franchiseCandidates: { id: number; name: string }[] =
+    franchiseResults?.results || franchiseResults || []
 
   const externalIcons: Record<string, string> = {
     kp: kpIcon,
@@ -121,26 +135,18 @@ export function MediaDetail({
     }
   }
 
-  const handleRemoveUniverse = async (itemId: number) => {
-    await removeUniverseItem.mutateAsync({ collectionId: universeId, itemId })
-  }
-
-  const handleUniverseMoveUp = async (itemId: number, index: number) => {
-    if (index <= 0) return
-    await updateUniversePosition.mutateAsync({
-      collectionId: universeId,
-      itemId,
-      position: index - 1,
-    })
-  }
-
-  const handleUniverseMoveDown = async (itemId: number, index: number) => {
-    if (index >= franchiseItems.length - 1) return
-    await updateUniversePosition.mutateAsync({
-      collectionId: universeId,
-      itemId,
-      position: index + 1,
-    })
+  const handleLinkToFranchise = async (franchiseId: number) => {
+    setLinkError('')
+    try {
+      await addFranchiseItem.mutateAsync({ collectionId: franchiseId, mediaEntryId: mediaId })
+      setFranchiseQuery('')
+      setFranchiseSearchOpen(false)
+    } catch (err) {
+      const message = (
+        err as { response?: { data?: { error?: string } } }
+      ).response?.data?.error
+      setLinkError(message || 'Не удалось связать с франшизой')
+    }
   }
 
   const handleDelete = async () => {
@@ -451,71 +457,119 @@ export function MediaDetail({
         </TabsContent>
 
         <TabsContent value="related" className="space-y-3">
-          <div className="space-y-2">
-            <Input
-              placeholder="Найти медиа для связи..."
-              value={universeQuery}
-              onChange={(e) => {
-                setUniverseQuery(e.target.value)
-                setLinkError('')
-              }}
-            />
-            {linkError && <p className="text-sm text-destructive">{linkError}</p>}
-            {trimmedUniverse && (
-              <div className="space-y-1">
-                {isUniverseSearching && (
-                  <p className="text-xs text-muted-foreground">Поиск...</p>
-                )}
-                {!isUniverseSearching && universeCandidates.length === 0 && (
-                  <p className="text-xs text-muted-foreground">Ничего не найдено</p>
-                )}
-                {universeCandidates.map((media: { id: number; title: string }) => (
-                  <div
-                    key={media.id}
-                    className="flex items-center justify-between gap-3 rounded border p-2"
-                  >
-                    <span className="text-sm truncate">{media.title}</span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={linkUniverse.isPending}
-                      onClick={() => handleLinkUniverse(media.id)}
+          {universeId ? (
+            <Link
+              to={`/franchises/${universeId}`}
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              Открыть франшизу{franchise?.name ? ` «${franchise.name}»` : ''}
+            </Link>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={franchiseSearchOpen ? 'default' : 'outline'}
+                onClick={() => setFranchiseSearchOpen((v) => !v)}
+              >
+                Связать с франшизой
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={mediaSearchOpen ? 'default' : 'outline'}
+                onClick={() => setMediaSearchOpen((v) => !v)}
+              >
+                Связать с медиа
+              </Button>
+            </div>
+          )}
+
+          {!universeId && franchiseSearchOpen && (
+            <div className="space-y-2">
+              <Input
+                placeholder="Найти франшизу..."
+                value={franchiseQuery}
+                onChange={(e) => {
+                  setFranchiseQuery(e.target.value)
+                  setLinkError('')
+                }}
+              />
+              {linkError && <p className="text-sm text-destructive">{linkError}</p>}
+              {trimmedFranchise && (
+                <div className="space-y-1">
+                  {isFranchiseSearching && (
+                    <p className="text-xs text-muted-foreground">Поиск...</p>
+                  )}
+                  {!isFranchiseSearching && franchiseCandidates.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Ничего не найдено</p>
+                  )}
+                  {franchiseCandidates.map((col: { id: number; name: string }) => (
+                    <div
+                      key={col.id}
+                      className="flex items-center justify-between gap-3 rounded border p-2"
                     >
-                      Связать
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                      <span className="text-sm truncate">{col.name}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={addFranchiseItem.isPending}
+                        onClick={() => handleLinkToFranchise(col.id)}
+                      >
+                        Связать
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!universeId && mediaSearchOpen && (
+            <div className="space-y-2">
+              <Input
+                placeholder="Найти медиа для связи..."
+                value={universeQuery}
+                onChange={(e) => {
+                  setUniverseQuery(e.target.value)
+                  setLinkError('')
+                }}
+              />
+              {linkError && <p className="text-sm text-destructive">{linkError}</p>}
+              {trimmedUniverse && (
+                <div className="space-y-1">
+                  {isUniverseSearching && (
+                    <p className="text-xs text-muted-foreground">Поиск...</p>
+                  )}
+                  {!isUniverseSearching && universeCandidates.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Ничего не найдено</p>
+                  )}
+                  {universeCandidates.map((media: { id: number; title: string }) => (
+                    <div
+                      key={media.id}
+                      className="flex items-center justify-between gap-3 rounded border p-2"
+                    >
+                      <span className="text-sm truncate">{media.title}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={linkUniverse.isPending}
+                        onClick={() => handleLinkUniverse(media.id)}
+                      >
+                        Связать
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {franchiseItems.length ? (
             <div className="space-y-2">
-              {franchiseItems.map((item, index) => (
-                <Card key={item.id}>
+              {franchiseItems.map((item) => (
+                <Card key={item.id} className="hover:shadow-lg transition-shadow">
                   <CardContent className="p-3 flex items-center gap-4">
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => handleUniverseMoveUp(item.id, index)}
-                        title="Выше"
-                        aria-label="Выше"
-                      >
-                        ↑
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => handleUniverseMoveDown(item.id, index)}
-                        title="Ниже"
-                        aria-label="Ниже"
-                      >
-                        ↓
-                      </Button>
-                    </div>
                     <Link
                       to={`/media/${item.media_entry_detail.id}`}
                       className="flex items-center gap-3 flex-1 min-w-0"
@@ -529,29 +583,16 @@ export function MediaDetail({
                       ) : null}
                       <div className="min-w-0">
                         <p className="font-medium break-words">{item.media_entry_detail.title}</p>
-                        <div className="flex items-center gap-1">
-                          <WatchStatusIcon status={item.media_entry_detail.my_status} />
-                          <Badge variant="outline" className="text-xs">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>
                             {mediaTypeLabels[item.media_entry_detail.media_type] || item.media_entry_detail.media_type}
-                          </Badge>
+                          </span>
                           {item.media_entry_detail.year_start && (
-                            <Badge variant="outline" className="text-xs">
-                              {item.media_entry_detail.year_start}
-                            </Badge>
+                            <span>{item.media_entry_detail.year_start}</span>
                           )}
-                          <UserRatingBadge value={item.media_entry_detail.my_rating} />
                         </div>
                       </div>
                     </Link>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRemoveUniverse(item.id)}
-                      title="Убрать из связанных"
-                      aria-label={`Убрать ${item.media_entry_detail.title} из связанных`}
-                    >
-                      ✕
-                    </Button>
                   </CardContent>
                 </Card>
               ))}

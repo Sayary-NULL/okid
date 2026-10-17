@@ -210,10 +210,11 @@ export const useImport = () => {
 export const useCollections = (params?: Record<string, string>) =>
   useQuery({ queryKey: ['collections', params], queryFn: () => collectionsApi.list(params) })
 
-export const useFranchises = (params?: Record<string, string>) =>
+export const useFranchises = (params?: Record<string, string>, enabled = true) =>
   useQuery({
     queryKey: ['collections', 'universe', params],
     queryFn: () => collectionsApi.list({ universe: 'true', ...params }),
+    enabled,
   })
 
 export const useLinkUniverse = () => {
