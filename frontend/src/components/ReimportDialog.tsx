@@ -49,6 +49,28 @@ export function ReimportDialog({
       prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field],
     )
 
+  const allFieldKeys = ['title', 'description', 'poster_url', 'links', 'ratings']
+  const availableFields = hasLocalPoster
+    ? allFieldKeys.filter((key) => key !== 'poster_url')
+    : allFieldKeys
+
+  const clearFields = () =>
+    setFields((prev) => prev.filter((field) => !availableFields.includes(field)))
+
+  const selectAllFields = () =>
+    setFields((prev) => [
+      ...new Set([
+        ...prev.filter((field) => !availableFields.includes(field)),
+        ...availableFields,
+      ]),
+    ])
+
+  const invertFields = () =>
+    setFields((prev) => [
+      ...prev.filter((field) => !availableFields.includes(field)),
+      ...availableFields.filter((field) => !prev.includes(field)),
+    ])
+
   const handleConfirm = async () => {
     await reimport.mutateAsync({ id: mediaId, data: { source, fields } })
     onOpenChange(false)
@@ -97,6 +119,20 @@ export function ReimportDialog({
                 </SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={fields.length > 0 ? clearFields : selectAllFields}
+            >
+              {fields.length > 0 ? 'Снять выделения' : 'Выделить все'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={invertFields}>
+              Инвертировать
+            </Button>
           </div>
 
           {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}

@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { ReimportDialog } from '@/components/ReimportDialog'
 import { useState, useEffect, useRef } from 'react'
 
 export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: () => void }) {
@@ -31,7 +30,6 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
   const [posterUrl, setPosterUrl] = useState('')
   const [externalPkId, setExternalPkId] = useState('')
   const [externalShikimoriId, setExternalShikimoriId] = useState('')
-  const [reimportOpen, setReimportOpen] = useState(false)
 
   useEffect(() => {
     if (entry) {
@@ -225,14 +223,6 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
               />
             </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!externalPkId.trim() && !externalShikimoriId.trim()}
-            onClick={() => setReimportOpen(true)}
-          >
-            Реимпорт
-          </Button>
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="flex-1" onClick={onDone}>
@@ -241,15 +231,6 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
           <Button type="submit" className="flex-1">Сохранить</Button>
         </div>
       </form>
-
-      <ReimportDialog
-        mediaId={mediaId}
-        open={reimportOpen}
-        onOpenChange={setReimportOpen}
-        hasPk={!!externalPkId.trim()}
-        hasShikimori={!!externalShikimoriId.trim()}
-        hasLocalPoster={!!entry?.poster_local}
-      />
     </div>
   )
 }

@@ -6,8 +6,9 @@ import {
   useCollectionDetail, useFranchises, useAddCollectionItem,
 } from '@/hooks/useApi'
 import type { CollectionItem, DownloadStatus, ExternalLink as ExternalLinkItem, Informer, MyStatus } from '@/types'
-import { Pencil, Trash2, Star, X, Download, ExternalLink } from 'lucide-react'
+import { Pencil, Trash2, Star, X, Download, ExternalLink, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ReimportDialog } from '@/components/ReimportDialog'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { WatchStatusIcon, watchStatusLabels } from '@/components/WatchStatusIcon'
@@ -77,11 +78,13 @@ export function MediaDetail({
   const [linkError, setLinkError] = useState('')
   const [editingLinks, setEditingLinks] = useState(false)
   const [linksDraft, setLinksDraft] = useState<ExternalLinkItem[]>([])
+  const [reimportOpen, setReimportOpen] = useState(false)
 
   useEffect(() => {
     setEditingLinks(false)
     setFranchiseSearchOpen(false)
     setMediaSearchOpen(false)
+    setReimportOpen(false)
     setUniverseQuery('')
     setFranchiseQuery('')
     setLinkError('')
@@ -323,6 +326,16 @@ export function MediaDetail({
               </a>
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={!entry.external_pk_id && !entry.external_shikimori_id}
+            onClick={() => setReimportOpen(true)}
+            title="Реимпорт"
+            aria-label="Реимпорт"
+          >
+            <RefreshCw />
+          </Button>
           <Button
             variant="destructive"
             size="icon"
@@ -711,6 +724,15 @@ export function MediaDetail({
           )}
         </TabsContent>
       </Tabs>
+
+      <ReimportDialog
+        mediaId={mediaId}
+        open={reimportOpen}
+        onOpenChange={setReimportOpen}
+        hasPk={!!entry.external_pk_id}
+        hasShikimori={!!entry.external_shikimori_id}
+        hasLocalPoster={!!entry.poster_local}
+      />
     </div>
   )
 }
