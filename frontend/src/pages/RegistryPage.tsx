@@ -13,7 +13,13 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { MediaDetail } from '@/components/MediaDetail'
 import { MediaEditForm } from '@/components/MediaEditForm'
 import { WatchStatusIcon } from '@/components/WatchStatusIcon'
+import { UserRatingBadge } from '@/components/UserRatingBadge'
 import type { MediaEntry } from '@/types'
+
+const mediaTypeLabels: Record<string, string> = {
+  movie: 'Фильм',
+  series: 'Сериал',
+}
 
 const downloadLabels: Record<string, string> = {
   none: 'Нет',
@@ -43,7 +49,7 @@ function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) 
   }
 
   return (
-    <Link to={`/media/${entry.id}`} onClick={handleOpen}>
+    <Link to={`/media/${entry.id}`} onClick={handleOpen} className="group block">
       <Card className="hover:shadow-lg transition-shadow overflow-hidden">
         <div className="aspect-[2/3] bg-muted relative">
           {posterSrc ? (
@@ -51,6 +57,21 @@ function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) 
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Нет постера</div>
           )}
+          <div className="absolute left-2 top-2 flex items-center gap-1">
+            <WatchStatusIcon status={entry.my_status} />
+            {entry.download_status === 'downloaded' && (
+              <span
+                title={downloadLabels.downloaded}
+                aria-label={downloadLabels.downloaded}
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-full shadow',
+                  downloadIconClasses.downloaded,
+                )}
+              >
+                <Download className="h-4 w-4" />
+              </span>
+            )}
+          </div>
           <button
             type="button"
             onClick={handleToggleFavorite}
@@ -58,35 +79,28 @@ function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) 
             aria-label={entry.is_favorite ? 'Убрать из избранного' : 'В избранное'}
             aria-pressed={entry.is_favorite}
             className={cn(
-              'absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full shadow transition-colors',
+              'absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full shadow transition-opacity',
               entry.is_favorite
-                ? 'bg-yellow-400 text-white hover:bg-yellow-500'
-                : 'bg-white text-black hover:bg-neutral-100',
+                ? 'bg-yellow-400 text-white hover:bg-yellow-500 opacity-100'
+                : 'bg-white text-black hover:bg-neutral-100 opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
             )}
           >
             <Star className="h-4 w-4" fill={entry.is_favorite ? 'currentColor' : 'none'} />
           </button>
-          {entry.download_status !== 'none' && (
-            <span
-              title={downloadLabels[entry.download_status]}
-              aria-label={downloadLabels[entry.download_status]}
-              className={cn(
-                'absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full shadow',
-                downloadIconClasses[entry.download_status],
-              )}
-            >
-              <Download className="h-4 w-4" />
+          {entry.my_rating != null && (
+            <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5">
+              <UserRatingBadge value={entry.my_rating} className="text-white" />
             </span>
           )}
-          <WatchStatusIcon status={entry.my_status} className="absolute bottom-2 left-2" />
         </div>
         <CardContent className="p-3 space-y-1">
           <p className="font-medium text-sm line-clamp-1" title={entry.title}>
             {entry.title}
-            {entry.year_start && (
-              <span className="ml-1 text-xs text-muted-foreground">{entry.year_start}</span>
-            )}
           </p>
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>{mediaTypeLabels[entry.media_type] || entry.media_type}</span>
+            {entry.year_start && <span>{entry.year_start}</span>}
+          </div>
         </CardContent>
       </Card>
     </Link>
