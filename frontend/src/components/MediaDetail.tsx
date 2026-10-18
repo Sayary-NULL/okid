@@ -6,16 +6,17 @@ import {
   useCollectionDetail, useFranchises, useAddCollectionItem,
 } from '@/hooks/useApi'
 import type { CollectionItem, DownloadStatus, ExternalLink as ExternalLinkItem, Informer, MyStatus } from '@/types'
-import { Pencil, Trash2, Star, X, Download, ExternalLink, RefreshCw } from 'lucide-react'
+import { Pencil, Trash2, Star, X, Download, ExternalLink, RefreshCw, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ReimportDialog } from '@/components/ReimportDialog'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { WatchStatusIcon, watchStatusLabels } from '@/components/WatchStatusIcon'
+import { watchStatusLabels } from '@/components/WatchStatusIcon'
 import { SiteRating } from '@/components/SiteRating'
 import { UserRating } from '@/components/UserRating'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useState, useEffect } from 'react'
@@ -240,6 +241,22 @@ export function MediaDetail({
               Нет постера
             </div>
           )}
+          <Select
+            value={entry.my_status}
+            onValueChange={(v) => handleAddHistory(v)}
+          >
+            <SelectTrigger className="mt-3">
+              <SelectValue placeholder="Статус просмотра" />
+              <ChevronDown className="h-4 w-4 opacity-50" />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOrder.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {watchStatusLabels[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex-1 space-y-3">
           <h1 className="text-2xl font-bold">{entry.title}</h1>
@@ -248,7 +265,6 @@ export function MediaDetail({
             <Badge>{mediaTypeLabels[entry.media_type] || entry.media_type}</Badge>
             {entry.is_anime && <Badge variant="secondary">Аниме</Badge>}
             {entry.year_start && <Badge variant="outline">{entry.year_start}{entry.year_end ? `–${entry.year_end}` : ''}</Badge>}
-            <WatchStatusIcon status={entry.my_status} />
           </div>
           <UserRating
             value={entry.my_rating}
@@ -367,18 +383,6 @@ export function MediaDetail({
         </TabsContent>
 
         <TabsContent value="history" className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {statusOrder.map((status) => (
-              <Button
-                key={status}
-                variant={entry.my_status === status ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => handleAddHistory(status)}
-              >
-                {watchStatusLabels[status]}
-              </Button>
-            ))}
-          </div>
           <div className="space-y-1">
             {history?.map((h: { id: number; old_status: string; new_status: string; created_at: string }) => (
               <p key={h.id} className="text-sm flex items-center gap-2">
