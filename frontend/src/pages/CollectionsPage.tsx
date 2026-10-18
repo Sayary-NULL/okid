@@ -5,13 +5,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Pagination } from '@/components/Pagination'
 import { useState } from 'react'
+
+const PAGE_SIZE = 9
 
 export default function CollectionsPage() {
   const [q, setQ] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const params: Record<string, string> = {}
+  const [page, setPage] = useState(1)
+  const params: Record<string, string> = { page_size: String(PAGE_SIZE) }
   if (searchQuery) params.q = searchQuery
+  if (page > 1) params.page = String(page)
   const { data, isLoading } = useCollections(params)
   const createCollection = useCreateCollection()
   const [name, setName] = useState('')
@@ -20,6 +25,7 @@ export default function CollectionsPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    setPage(1)
     setSearchQuery(q)
   }
 
@@ -31,7 +37,7 @@ export default function CollectionsPage() {
     setOpen(false)
   }
 
-  const collections = data?.results || data || []
+  const collections = data?.results || []
 
   return (
     <div className="space-y-6">
@@ -64,24 +70,39 @@ export default function CollectionsPage() {
 
       {isLoading ? (
         <p className="text-muted-foreground">Загрузка...</p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.isArray(collections) && collections.map((col: { id: number; name: string; description: string; poster?: string | null; item_count?: number }) => (
-            <Link key={col.id} to={`/collections/${col.id}`}>
-              <Card className="hover:shadow-lg transition-shadow overflow-hidden">
-                <div className="aspect-[16/9] w-full bg-muted">
-                  {col.poster && (
-                    <img src={col.poster} alt={col.name} className="h-full w-full object-cover" />
-                  )}
-                </div>
-                <CardContent className="p-4 space-y-1">
-                  <p className="font-medium">{col.name}</p>
-                  <p className="text-xs text-muted-foreground">{col.item_count ?? 0} элементов</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+      ) : collections.length ? (
+        <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {collections.map((col) => (
+              <Link key={col.id} to={`/collections/${col.id}`}>
+                <Card className="hover:shadow-lg transition-shadow overflow-hidden">
+                  <div className="aspect-[16/9] w-full bg-muted">
+                    {col.poster && (
+                      <img src={col.poster} alt={col.name} className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                  <CardContent className="p-4 space-y-1">
+                    <p className="font-medium">{col.name}</p>
+                    <p className="text-xs text-muted-foreground">{col.item_count ?? 0} элементов</p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+          {data && (
+            <Pagination
+              page={data.page}
+              totalPages={data.total_pages}
+              count={data.count}
+              onChange={(p) => {
+                setPage(p)
+                document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+            />
+          )}
         </div>
+      ) : (
+        <p className="text-muted-foreground">Коллекций пока нет.</p>
       )}
     </div>
   )

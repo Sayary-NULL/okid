@@ -9,6 +9,7 @@ import type { MediaEntry } from '@/types'
 import { Pencil, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Link } from 'react-router-dom'
 
@@ -98,31 +99,11 @@ export default function CollectionDetailPage() {
   if (!collection) return <p className="text-destructive">Не найдено</p>
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="relative w-full aspect-[16/9] overflow-hidden rounded-lg bg-muted">
-        {collection.poster ? (
-          <img
-            src={collection.poster}
-            alt={collection.name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Постер не установлен
-          </div>
-        )}
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="min-w-0 break-words text-2xl font-bold">{collection.name}</h1>
         {!editing && (
-          <div className="absolute inset-x-0 top-0 bg-linear-to-b from-black/80 via-black/50 to-transparent px-4 pt-3 pb-10">
-            <h1 className="text-2xl font-bold text-white">{collection.name}</h1>
-          </div>
-        )}
-        {!editing && collection.description && (
-          <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-gray-600/80 via-gray-600/40 to-transparent px-4 pb-3 pt-10">
-            <p className="text-sm text-white">{collection.description}</p>
-          </div>
-        )}
-        {!editing && (
-          <div className="absolute top-3 right-3 flex flex-col gap-2">
+          <div className="flex shrink-0 gap-2">
             <Button
               variant="outline"
               size="icon"
@@ -156,7 +137,15 @@ export default function CollectionDetailPage() {
 
       {editing && (
         <div className="space-y-2">
-          <div className="flex gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={posterInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePosterChange}
+            />
             <Button
               size="sm"
               variant="outline"
@@ -175,59 +164,76 @@ export default function CollectionDetailPage() {
                 Удалить постер
               </Button>
             )}
-            <input
-              ref={posterInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePosterChange}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">Широкий постер, рекомендуется 16:9</p>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-          <Input value={description} onChange={(e) => setDescription(e.target.value)} />
-          <div className="flex gap-2">
             <Button size="sm" onClick={handleSave}>Сохранить</Button>
             <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Отмена</Button>
           </div>
+          <p className="text-xs text-muted-foreground">Широкий постер, рекомендуется 16:9</p>
         </div>
       )}
 
-      {editing && (
-        <div className="space-y-2">
-          <Input
-            placeholder="Найти медиа для добавления..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {trimmedSearch && (
-            <div className="space-y-1">
-              {isSearching && <p className="text-xs text-muted-foreground">Поиск...</p>}
-              {!isSearching && candidates.length === 0 && (
-                <p className="text-xs text-muted-foreground">Ничего не найдено</p>
-              )}
-              {candidates.map((media: MediaEntry) => (
-                <div
-                  key={media.id}
-                  className="flex items-center justify-between gap-3 rounded border p-2"
-                >
-                  <span className="text-sm truncate">
-                    {media.title}
-                    {media.year_start && (
-                      <span className="ml-1 text-xs text-muted-foreground">{media.year_start}</span>
-                    )}
-                  </span>
-                  <Button size="sm" variant="outline" onClick={() => handleAddItem(media.id)}>
-                    Добавить
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="space-y-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto lg:pr-1">
+          <div className="aspect-[16/9] w-full overflow-hidden rounded-lg bg-muted">
+            {collection.poster ? (
+              <img
+                src={collection.poster}
+                alt={collection.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center px-2 text-center text-xs text-muted-foreground">
+                Постер не установлен
+              </div>
+            )}
+          </div>
+          {editing ? (
+            <Textarea
+              placeholder="Описание"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={6}
+            />
+          ) : collection.description ? (
+            <p className="whitespace-pre-line text-sm text-muted-foreground">
+              {collection.description}
+            </p>
+          ) : null}
+        </aside>
 
-      <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
+        {editing && (
+          <div className="space-y-2">
+            <Input
+              placeholder="Найти медиа для добавления..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {trimmedSearch && (
+              <div className="space-y-1">
+                {isSearching && <p className="text-xs text-muted-foreground">Поиск...</p>}
+                {!isSearching && candidates.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Ничего не найдено</p>
+                )}
+                {candidates.map((media: MediaEntry) => (
+                  <div
+                    key={media.id}
+                    className="flex items-center justify-between gap-3 rounded border p-2"
+                  >
+                    <span className="text-sm truncate">
+                      {media.title}
+                      {media.year_start && (
+                        <span className="ml-1 text-xs text-muted-foreground">{media.year_start}</span>
+                      )}
+                    </span>
+                    <Button size="sm" variant="outline" onClick={() => handleAddItem(media.id)}>
+                      Добавить
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {collection.items?.map((item: { id: number; media_entry_detail: MediaEntry; position: number }, index: number) => (
           <Card key={item.id} className="hover:shadow-lg transition-shadow">
             <CardContent className="p-3 flex items-center gap-4">
@@ -259,6 +265,7 @@ export default function CollectionDetailPage() {
             </CardContent>
           </Card>
         ))}
+        </div>
       </div>
     </div>
   )

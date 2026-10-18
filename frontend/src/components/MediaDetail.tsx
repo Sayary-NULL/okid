@@ -112,7 +112,7 @@ export function MediaDetail({
     (m: { id: number }) => m.id !== entry.id && !memberIds.has(m.id),
   )
   const franchiseCandidates: { id: number; name: string }[] =
-    franchiseResults?.results || franchiseResults || []
+    franchiseResults?.results || []
 
   const externalIcons: Record<string, string> = {
     kp: kpIcon,
