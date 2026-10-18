@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import type { ExternalLink } from '@/types'
 import { useState, useEffect, useRef } from 'react'
 
 export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: () => void }) {
@@ -30,6 +31,7 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
   const [posterUrl, setPosterUrl] = useState('')
   const [externalPkId, setExternalPkId] = useState('')
   const [externalShikimoriId, setExternalShikimoriId] = useState('')
+  const [externalLinks, setExternalLinks] = useState<ExternalLink[]>([])
 
   useEffect(() => {
     if (entry) {
@@ -43,6 +45,7 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
       setPosterUrl(entry.poster_url || '')
       setExternalPkId(entry.external_pk_id || '')
       setExternalShikimoriId(entry.external_shikimori_id || '')
+      setExternalLinks(((entry.external_links || []) as ExternalLink[]).map((link) => ({ ...link })))
     }
   }, [entry])
 
@@ -70,8 +73,29 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
     await removePoster.mutateAsync(mediaId)
   }
 
+  const updateLinkField = (index: number, field: keyof ExternalLink, value: string) => {
+    setExternalLinks((prev) =>
+      prev.map((link, i) => (i === index ? { ...link, [field]: value } : link)),
+    )
+  }
+
+  const removeLink = (index: number) => {
+    setExternalLinks((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const addLink = () => {
+    setExternalLinks((prev) => [...prev, { name: '', icon: '', url: '' }])
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const cleanedLinks = externalLinks
+      .map((link) => ({
+        name: link.name.trim(),
+        icon: link.icon.trim(),
+        url: link.url.trim(),
+      }))
+      .filter((link) => link.name || link.url)
     await updateMedia.mutateAsync({
       id: mediaId,
       data: {
@@ -85,6 +109,7 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
         poster_url: posterUrl,
         external_pk_id: externalPkId.trim(),
         external_shikimori_id: externalShikimoriId.trim(),
+        external_links: cleanedLinks,
       },
     })
     onDone()
@@ -223,6 +248,59 @@ export function MediaEditForm({ mediaId, onDone }: { mediaId: number; onDone: ()
               />
             </div>
           </div>
+        </div>
+        <div className="space-y-3 rounded-lg border p-4">
+          <div>
+            <Label>Внешние ссылки</Label>
+            <p className="text-xs text-muted-foreground">
+              Дополнительные ссылки, отображаемые на карточке медиа.
+            </p>
+          </div>
+          {externalLinks.length === 0 && (
+            <p className="text-sm text-muted-foreground">Внешние ссылки отсутствуют</p>
+          )}
+          <div className="space-y-3">
+            {externalLinks.map((link, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-1 gap-2 rounded border p-3 sm:grid-cols-[1fr_1.5fr_1fr_auto] sm:items-end"
+              >
+                <div className="space-y-1">
+                  <Label>Название</Label>
+                  <Input
+                    value={link.name}
+                    onChange={(e) => updateLinkField(index, 'name', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Ссылка</Label>
+                  <Input
+                    value={link.url}
+                    onChange={(e) => updateLinkField(index, 'url', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Иконка</Label>
+                  <Input
+                    value={link.icon}
+                    onChange={(e) => updateLinkField(index, 'icon', e.target.value)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => removeLink(index)}
+                  title="Удалить ссылку"
+                  aria-label="Удалить ссылку"
+                >
+                  ✕
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button type="button" variant="outline" onClick={addLink}>
+            Добавить ссылку
+          </Button>
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="flex-1" onClick={onDone}>

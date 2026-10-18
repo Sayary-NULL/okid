@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import kpIcon from '@/assets/kinopoisk.ico'
@@ -77,12 +76,9 @@ export function MediaDetail({
   const [franchiseSearchOpen, setFranchiseSearchOpen] = useState(false)
   const [mediaSearchOpen, setMediaSearchOpen] = useState(false)
   const [linkError, setLinkError] = useState('')
-  const [editingLinks, setEditingLinks] = useState(false)
-  const [linksDraft, setLinksDraft] = useState<ExternalLinkItem[]>([])
   const [reimportOpen, setReimportOpen] = useState(false)
 
   useEffect(() => {
-    setEditingLinks(false)
     setFranchiseSearchOpen(false)
     setMediaSearchOpen(false)
     setReimportOpen(false)
@@ -197,37 +193,6 @@ export function MediaDetail({
       id: mediaId,
       data: { download_status: downloadCycle[entry.download_status as DownloadStatus] },
     })
-  }
-
-  const startEditLinks = () => {
-    setLinksDraft((entry.external_links || []).map((link: ExternalLinkItem) => ({ ...link })))
-    setEditingLinks(true)
-  }
-
-  const updateLinkField = (index: number, field: keyof ExternalLinkItem, value: string) => {
-    setLinksDraft((prev) =>
-      prev.map((link, i) => (i === index ? { ...link, [field]: value } : link)),
-    )
-  }
-
-  const removeLinkDraft = (index: number) => {
-    setLinksDraft((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const addLinkDraft = () => {
-    setLinksDraft((prev) => [...prev, { name: '', icon: '', url: '' }])
-  }
-
-  const saveLinks = async () => {
-    const cleaned = linksDraft
-      .map((link) => ({
-        name: link.name.trim(),
-        icon: link.icon.trim(),
-        url: link.url.trim(),
-      }))
-      .filter((link) => link.name || link.url)
-    await updateMedia.mutateAsync({ id: mediaId, data: { external_links: cleaned } })
-    setEditingLinks(false)
   }
 
   return (
@@ -620,111 +585,34 @@ export function MediaDetail({
         </TabsContent>
 
         <TabsContent value="external" className="space-y-3">
-          {editingLinks ? (
-            <div className="space-y-3">
-              <div className="space-y-3">
-                {linksDraft.map((link, index) => (
-                  <div
-                    key={index}
-                    className="grid grid-cols-1 gap-2 rounded border p-3 sm:grid-cols-[1fr_1.5fr_1fr_auto] sm:items-end"
+          {externalLinks.length ? (
+            <div className="flex flex-wrap gap-2">
+              {externalLinks.map((link, index) => {
+                const iconSrc =
+                  externalIcons[link.icon] ||
+                  (link.icon.startsWith('http') ? link.icon : '')
+                return (
+                  <a
+                    key={`${link.icon}-${index}`}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
                   >
-                    <div className="space-y-1">
-                      <Label>Название</Label>
-                      <Input
-                        value={link.name}
-                        onChange={(e) => updateLinkField(index, 'name', e.target.value)}
+                    {iconSrc && (
+                      <img
+                        src={iconSrc}
+                        alt=""
+                        className="h-4 w-4 rounded object-contain"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Ссылка</Label>
-                      <Input
-                        value={link.url}
-                        onChange={(e) => updateLinkField(index, 'url', e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Иконка</Label>
-                      <Input
-                        value={link.icon}
-                        onChange={(e) => updateLinkField(index, 'icon', e.target.value)}
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => removeLinkDraft(index)}
-                      title="Удалить ссылку"
-                      aria-label="Удалить ссылку"
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={addLinkDraft}>
-                  Добавить ссылку
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditingLinks(false)}
-                  disabled={updateMedia.isPending}
-                >
-                  Отмена
-                </Button>
-                <Button
-                  type="button"
-                  onClick={saveLinks}
-                  disabled={updateMedia.isPending}
-                >
-                  Сохранить
-                </Button>
-              </div>
+                    )}
+                    {link.name}
+                  </a>
+                )
+              })}
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={startEditLinks}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Редактировать
-                </Button>
-              </div>
-              {externalLinks.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {externalLinks.map((link, index) => {
-                    const iconSrc =
-                      externalIcons[link.icon] ||
-                      (link.icon.startsWith('http') ? link.icon : '')
-                    return (
-                      <a
-                        key={`${link.icon}-${index}`}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-                      >
-                        {iconSrc && (
-                          <img
-                            src={iconSrc}
-                            alt=""
-                            className="h-4 w-4 rounded object-contain"
-                          />
-                        )}
-                        {link.name}
-                      </a>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Внешние ссылки отсутствуют</p>
-              )}
-            </div>
+            <p className="text-sm text-muted-foreground">Внешние ссылки отсутствуют</p>
           )}
         </TabsContent>
       </Tabs>
