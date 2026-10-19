@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.test import APIClient
+from media import views
 from media.models import Genre, Country, MediaEntry, MediaHistory
 
 PNG_BYTES = (
@@ -422,6 +423,103 @@ class TestMedia:
         )
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data["created"] is True
+
+    def test_search_poiskkino_marks_existing_entry(self, auth_client, monkeypatch):
+        user = auth_client.user
+        existing = MediaEntry.objects.create(
+            user=user, title="Existing", external_pk_id="111"
+        )
+
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {
+                    "docs": [
+                        {"id": 111, "name": "Existing", "type": "movie"},
+                        {"id": 222, "name": "New", "type": "movie"},
+                    ]
+                }
+
+        monkeypatch.setattr(views.settings, "POISKKINO_API_KEY", "test-key")
+        monkeypatch.setattr(views.requests, "get", lambda *a, **k: FakeResponse())
+
+        resp = auth_client.post(
+            "/api/search/",
+            {"query": "x", "type": "movie", "source": "poiskkino"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        by_id = {
+            r["external_pk_id"]: r["existing_entry_id"]
+            for r in resp.data["results"]
+        }
+        assert by_id["111"] == existing.id
+        assert by_id["222"] is None
+
+    def test_search_existing_entry_only_within_user(self, auth_client, monkeypatch):
+        other = User.objects.create_user("other", password="pass12345")
+        MediaEntry.objects.create(user=other, title="Other", external_pk_id="111")
+
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"docs": [{"id": 111, "name": "Shared", "type": "movie"}]}
+
+        monkeypatch.setattr(views.settings, "POISKKINO_API_KEY", "test-key")
+        monkeypatch.setattr(views.requests, "get", lambda *a, **k: FakeResponse())
+
+        resp = auth_client.post(
+            "/api/search/",
+            {"query": "x", "type": "movie", "source": "poiskkino"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["results"][0]["existing_entry_id"] is None
+
+    def test_search_shikimori_marks_existing_entry(self, auth_client, monkeypatch):
+        user = auth_client.user
+        existing = MediaEntry.objects.create(
+            user=user, title="Anime", external_shikimori_id="31240"
+        )
+
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {
+                    "data": {
+                        "animes": [
+                            {"id": 31240, "name": "Anime", "kind": "tv"},
+                            {"id": 999, "name": "Other", "kind": "movie"},
+                        ]
+                    }
+                }
+
+        monkeypatch.setattr(views.requests, "post", lambda *a, **k: FakeResponse())
+
+        resp = auth_client.post(
+            "/api/search/",
+            {"query": "x", "type": "all", "source": "shikimori"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        by_id = {
+            r["external_shikimori_id"]: r["existing_entry_id"]
+            for r in resp.data["results"]
+        }
+        assert by_id["31240"] == existing.id
+        assert by_id["999"] is None
 
     def test_update_external_ids(self, auth_client):
         user = auth_client.user

@@ -132,6 +132,7 @@ export interface SearchResult {
   countries: string[]
   year_start: number | null
   year_end: number | null
+  existing_entry_id?: number | null
 }
 
 export interface ReimportPreview {

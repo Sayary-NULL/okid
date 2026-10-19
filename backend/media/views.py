@@ -691,8 +691,53 @@ class SearchView(APIView):
             )
 
         if source == "shikimori":
-            return self._search_shikimori(query, media_type, year)
-        return self._search_poiskkino(query, media_type, year)
+            response = self._search_shikimori(query, media_type, year)
+        else:
+            response = self._search_poiskkino(query, media_type, year)
+
+        if response.status_code == status.HTTP_200_OK:
+            results = getattr(response, "data", {}).get("results")
+            if isinstance(results, list):
+                self._annotate_existing(request.user, results)
+        return response
+
+    @staticmethod
+    def _annotate_existing(user, results):
+        pk_ids = [
+            r["external_pk_id"]
+            for r in results
+            if r.get("external_pk_id")
+        ]
+        shikimori_ids = [
+            r["external_shikimori_id"]
+            for r in results
+            if r.get("external_shikimori_id")
+        ]
+        existing_pk = {}
+        if pk_ids:
+            existing_pk = {
+                entry.external_pk_id: entry.id
+                for entry in MediaEntry.objects.filter(
+                    user=user, external_pk_id__in=pk_ids
+                )
+            }
+        existing_shikimori = {}
+        if shikimori_ids:
+            existing_shikimori = {
+                entry.external_shikimori_id: entry.id
+                for entry in MediaEntry.objects.filter(
+                    user=user, external_shikimori_id__in=shikimori_ids
+                )
+            }
+        for result in results:
+            entry_id = None
+            pk_id = result.get("external_pk_id")
+            shikimori_id = result.get("external_shikimori_id")
+            if pk_id and pk_id in existing_pk:
+                entry_id = existing_pk[pk_id]
+            elif shikimori_id and shikimori_id in existing_shikimori:
+                entry_id = existing_shikimori[shikimori_id]
+            result["existing_entry_id"] = entry_id
 
     def _search_poiskkino(self, query, media_type, year):
         api_key = settings.POISKKINO_API_KEY
