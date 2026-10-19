@@ -26,7 +26,7 @@ from shelves.serializers import (
 
 class CollectionViewSet(ModelViewSet):
     def get_queryset(self):
-        queryset = Collection.objects.filter(user=self.request.user)
+        queryset = Collection.objects.filter(user=self.request.user).order_by("name")
         if self.action == "list":
             universe = self.request.query_params.get("universe")
             if universe and universe.lower() in ("1", "true"):
