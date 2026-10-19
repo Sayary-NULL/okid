@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { MediaDetail } from '@/components/MediaDetail'
 import {
@@ -156,7 +157,12 @@ export default function MediaSearchPage() {
                 <img src={result.poster_url} alt="" className="w-16 h-24 object-cover rounded" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-medium">{result.title}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{result.title}</p>
+                  {result.existing_entry_id != null && (
+                    <Badge variant="secondary" className="shrink-0">В библиотеке</Badge>
+                  )}
+                </div>
                 {result.original_title && <p className="text-sm text-muted-foreground">{result.original_title}</p>}
                 <p className="text-xs text-muted-foreground">{result.year}</p>
                 {result.genres && result.genres.length > 0 && (
