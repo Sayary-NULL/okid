@@ -186,7 +186,7 @@ export default function RegistryPage() {
 
   return (
     <div className="registry-page flex flex-col gap-6 pt-[72px]">
-      <div className="fixed left-64 right-0 top-0 z-40 flex h-[72px] items-center gap-2 border-b bg-background px-6">
+      <div className="fixed left-0 right-0 top-0 z-40 flex h-[72px] items-center gap-2 border-b bg-background px-4 md:left-64 md:px-6">
         <div className="relative" ref={menuRef}>
           <Button
             type="button"
