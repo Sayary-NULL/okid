@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useMediaList, useMediaLetters, useGenres, useInformersList, useToggleFavorite } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Star, Download, Plus, X } from 'lucide-react'
+import { Star, Download, Plus, X, Filter, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -22,15 +22,76 @@ const mediaTypeLabels: Record<string, string> = {
   series: 'Сериал',
 }
 
+const statusLabels: Record<string, string> = {
+  plan_to_watch: 'Планирую',
+  watching: 'Смотрю',
+  dropped: 'Бросил',
+  completed: 'Просмотрено',
+}
+
 const downloadLabels: Record<string, string> = {
   none: 'Нет',
   need_download: 'Скачать',
   downloaded: 'Скачано',
 }
 
+const animeLabels: Record<string, string> = {
+  true: 'Аниме',
+  false: 'Без аниме',
+}
+
 const downloadIconClasses: Record<string, string> = {
   need_download: 'bg-yellow-400 text-white',
   downloaded: 'bg-green-500 text-black',
+}
+
+function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{children}</div>
+    </div>
+  )
+}
+
+type SelectOption = { value: string; label: string }
+
+function FilterSelect({
+  value,
+  onChange,
+  placeholder,
+  options,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  options: SelectOption[]
+}) {
+  return (
+    <div className="relative">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className={cn('w-full', value && 'border-primary pr-7')}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {value && (
+        <button
+          type="button"
+          aria-label={`Сбросить: ${placeholder}`}
+          title={`Сбросить: ${placeholder}`}
+          onClick={() => onChange('')}
+          className="absolute right-2 top-1/2 z-10 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  )
 }
 
 function MediaCard({ entry, onOpen }: { entry: MediaEntry; onOpen: (id: number) => void }) {
@@ -123,7 +184,9 @@ export default function RegistryPage() {
   const [detailId, setDetailId] = useState<number | null>(null)
   const [editing, setEditing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const filtersRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -142,6 +205,25 @@ export default function RegistryPage() {
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [menuOpen])
+
+  useEffect(() => {
+    if (!filtersOpen) return
+    const handleClickOutside = (e: globalThis.MouseEvent) => {
+      if (e.target instanceof Element && e.target.closest('[data-radix-popper-content-wrapper]')) return
+      if (filtersRef.current && !filtersRef.current.contains(e.target as Node)) {
+        setFiltersOpen(false)
+      }
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFiltersOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [filtersOpen])
 
   const params: Record<string, string> = {}
   if (searchQuery) params.q = searchQuery
@@ -184,124 +266,232 @@ export default function RegistryPage() {
     searchQuery || type || myStatus || downloadStatus || genre || informer || isFavorite || isAnime || letter,
   )
 
+  type FilterChip = { key: string; label: string; onRemove: () => void }
+  const chips: FilterChip[] = []
+  if (type) {
+    chips.push({ key: 'type', label: mediaTypeLabels[type] || type, onRemove: () => { setType(''); setPage(1) } })
+  }
+  if (genre) {
+    const genreName = genres?.find((g: { slug: string; name: string }) => g.slug === genre)?.name ?? genre
+    chips.push({ key: 'genre', label: `Жанр: ${genreName}`, onRemove: () => { setGenre(''); setPage(1) } })
+  }
+  if (isAnime) {
+    chips.push({ key: 'anime', label: animeLabels[isAnime] || isAnime, onRemove: () => { setIsAnime(''); setPage(1) } })
+  }
+  if (letter) {
+    chips.push({ key: 'letter', label: `Буква: ${letter}`, onRemove: () => { setLetter(''); setPage(1) } })
+  }
+  if (myStatus) {
+    chips.push({ key: 'status', label: statusLabels[myStatus] || myStatus, onRemove: () => { setMyStatus(''); setPage(1) } })
+  }
+  if (isFavorite) {
+    chips.push({ key: 'favorite', label: 'Избранное', onRemove: () => { setIsFavorite(false); setPage(1) } })
+  }
+  if (downloadStatus) {
+    chips.push({
+      key: 'download',
+      label: `Загрузка: ${downloadLabels[downloadStatus] || downloadStatus}`,
+      onRemove: () => { setDownloadStatus(''); setPage(1) },
+    })
+  }
+  if (informer) {
+    const informerName = informers?.find((i: { id: number; name: string }) => String(i.id) === informer)?.name ?? informer
+    chips.push({ key: 'informer', label: `Информатор: ${informerName}`, onRemove: () => { setInformer(''); setPage(1) } })
+  }
+
   return (
     <div className="registry-page flex flex-col gap-6 pt-[72px]">
-      <div className="fixed left-0 right-0 top-0 z-40 flex h-[72px] items-center gap-2 border-b bg-background px-4 md:left-64 md:px-6">
-        <div className="relative" ref={menuRef}>
-          <Button
-            type="button"
-            size="icon"
-            onClick={() => setMenuOpen((v) => !v)}
-            title="Создать"
-            aria-label="Создать"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-          >
-            <Plus />
-          </Button>
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute left-0 z-50 mt-2 w-40 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+      <div className="fixed left-0 right-0 top-0 z-40 border-b bg-background md:left-64">
+        <div className="flex h-[72px] items-center gap-2 px-4 md:px-6">
+          <div className="relative" ref={menuRef}>
+            <Button
+              type="button"
+              size="icon"
+              onClick={() => setMenuOpen((v) => !v)}
+              title="Создать"
+              aria-label="Создать"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
             >
-              <Link
-                to="/media/new"
-                role="menuitem"
-                onClick={() => setMenuOpen(false)}
-                className="block rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+              <Plus />
+            </Button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 z-50 mt-2 w-40 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
               >
-                Создать
-              </Link>
-              <Link
-                to="/media/search"
-                role="menuitem"
-                onClick={() => setMenuOpen(false)}
-                className="block rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-              >
-                Импортировать
-              </Link>
+                <Link
+                  to="/media/new"
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                >
+                  Создать
+                </Link>
+                <Link
+                  to="/media/search"
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                >
+                  Импортировать
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={handleSearch} className="min-w-0 flex-1 md:flex-none">
+            <div className="relative w-full md:w-56">
+              <Input
+                placeholder="Поиск..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className={cn('w-full', q.trim() && 'pr-11')}
+              />
+              {q.trim() && (
+                <button
+                  type="submit"
+                  title="Найти"
+                  aria-label="Найти"
+                  className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border bg-muted text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              )}
             </div>
-          )}
-        </div>
-        <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <Input
-            placeholder="Поиск..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="w-48"
-          />
-          <Button type="submit">Поиск</Button>
-        </form>
-        <Select value={type} onValueChange={(v) => { setType(v === 'all' ? '' : v); setPage(1) }}>
-          <SelectTrigger className={cn('w-28', type && 'border-primary')}><SelectValue placeholder="Тип" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все</SelectItem>
-            <SelectItem value="movie">Фильмы</SelectItem>
-            <SelectItem value="series">Сериалы</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={myStatus} onValueChange={(v) => { setMyStatus(v === 'all' ? '' : v); setPage(1) }}>
-          <SelectTrigger className={cn('w-32', myStatus && 'border-primary')}><SelectValue placeholder="Статус" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все</SelectItem>
-            <SelectItem value="plan_to_watch">Планирую</SelectItem>
-            <SelectItem value="watching">Смотрю</SelectItem>
-            <SelectItem value="dropped">Бросил</SelectItem>
-            <SelectItem value="completed">Просмотрено</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={downloadStatus} onValueChange={(v) => { setDownloadStatus(v === 'all' ? '' : v); setPage(1) }}>
-          <SelectTrigger className={cn('w-36', downloadStatus && 'border-primary')}><SelectValue placeholder="Загрузка" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все</SelectItem>
-            <SelectItem value="none">Нет</SelectItem>
-            <SelectItem value="need_download">Скачать</SelectItem>
-            <SelectItem value="downloaded">Скачано</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={genre} onValueChange={(v) => { setGenre(v === 'all' ? '' : v); setPage(1) }}>
-          <SelectTrigger className={cn('w-32', genre && 'border-primary')}><SelectValue placeholder="Жанр" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все</SelectItem>
-            {genres?.map((g: { slug: string; name: string }) => (
-              <SelectItem key={g.slug} value={g.slug}>{g.name}</SelectItem>
+          </form>
+
+          <div className="hidden min-w-0 flex-1 items-center justify-end gap-1.5 overflow-hidden md:flex">
+            {chips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={chip.onRemove}
+                title={`Убрать: ${chip.label}`}
+                aria-label={`Убрать фильтр ${chip.label}`}
+                className="inline-flex min-w-0 shrink items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <span className="truncate">{chip.label}</span>
+                <X className="h-3 w-3 shrink-0" />
+              </button>
             ))}
-          </SelectContent>
-        </Select>
-        <Select value={informer} onValueChange={(v) => { setInformer(v === 'all' ? '' : v); setPage(1) }}>
-          <SelectTrigger className={cn('w-36', informer && 'border-primary')}><SelectValue placeholder="Информатор" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все</SelectItem>
-            {informers?.map((inf: { id: number; name: string }) => (
-              <SelectItem key={inf.id} value={String(inf.id)}>{inf.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          type="button"
-          variant={isFavorite ? 'default' : 'outline'}
-          size="sm"
-          aria-pressed={isFavorite}
-          onClick={() => { setIsFavorite((v) => !v); setPage(1) }}
-        >
-          <Star fill={isFavorite ? 'currentColor' : 'none'} />
-          Избранное
-        </Button>
-        <Select value={isAnime} onValueChange={(v) => { setIsAnime(v === 'all' ? '' : v); setPage(1) }}>
-          <SelectTrigger className={cn('w-32', isAnime && 'border-primary')}><SelectValue placeholder="Аниме" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все</SelectItem>
-            <SelectItem value="true">Аниме</SelectItem>
-            <SelectItem value="false">Без аниме</SelectItem>
-          </SelectContent>
-        </Select>
-        {hasFilters && (
-          <Button type="button" variant="ghost" size="sm" onClick={handleReset}>
-            <X />
-            Сбросить
-          </Button>
-        )}
+          </div>
+
+          <div className="relative shrink-0" ref={filtersRef}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((v) => !v)}
+              className={cn(chips.length > 0 && 'border-primary text-primary')}
+            >
+              <Filter />
+              Фильтры
+              {chips.length > 0 && (
+                <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                  {chips.length}
+                </span>
+              )}
+            </Button>
+
+            {filtersOpen && (
+              <div
+                role="dialog"
+                aria-label="Фильтры"
+                className="absolute right-0 z-50 mt-2 max-h-[calc(100vh-84px)] w-[min(24rem,calc(100vw-2rem))] space-y-4 overflow-y-auto rounded-md border bg-popover p-4 text-popover-foreground shadow-md"
+              >
+                <FilterGroup title="Контент">
+                  <FilterSelect
+                    value={type}
+                    placeholder="Тип"
+                    onChange={(v) => { setType(v); setPage(1) }}
+                    options={[
+                      { value: 'movie', label: 'Фильмы' },
+                      { value: 'series', label: 'Сериалы' },
+                    ]}
+                  />
+                  <FilterSelect
+                    value={genre}
+                    placeholder="Жанр"
+                    onChange={(v) => { setGenre(v); setPage(1) }}
+                    options={(genres ?? []).map((g: { slug: string; name: string }) => ({ value: g.slug, label: g.name }))}
+                  />
+                  <FilterSelect
+                    value={isAnime}
+                    placeholder="Аниме"
+                    onChange={(v) => { setIsAnime(v); setPage(1) }}
+                    options={[
+                      { value: 'true', label: 'Аниме' },
+                      { value: 'false', label: 'Без аниме' },
+                    ]}
+                  />
+                  {letters && letters.length > 0 && (
+                    <div className="md:hidden">
+                      <FilterSelect
+                        value={letter}
+                        placeholder="Буква"
+                        onChange={(v) => { setLetter(v); setPage(1) }}
+                        options={letters.map(({ letter: char }) => ({ value: char, label: char }))}
+                      />
+                    </div>
+                  )}
+                </FilterGroup>
+
+                <FilterGroup title="Мой прогресс">
+                  <FilterSelect
+                    value={myStatus}
+                    placeholder="Статус"
+                    onChange={(v) => { setMyStatus(v); setPage(1) }}
+                    options={[
+                      { value: 'plan_to_watch', label: 'Планирую' },
+                      { value: 'watching', label: 'Смотрю' },
+                      { value: 'dropped', label: 'Бросил' },
+                      { value: 'completed', label: 'Просмотрено' },
+                    ]}
+                  />
+                  <Button
+                    type="button"
+                    variant={isFavorite ? 'default' : 'outline'}
+                    aria-pressed={isFavorite}
+                    onClick={() => { setIsFavorite((v) => !v); setPage(1) }}
+                    className="justify-start"
+                  >
+                    <Star fill={isFavorite ? 'currentColor' : 'none'} />
+                    Избранное
+                  </Button>
+                </FilterGroup>
+
+                <FilterGroup title="Библиотека">
+                  <FilterSelect
+                    value={downloadStatus}
+                    placeholder="Загрузка"
+                    onChange={(v) => { setDownloadStatus(v); setPage(1) }}
+                    options={[
+                      { value: 'none', label: 'Нет' },
+                      { value: 'need_download', label: 'Скачать' },
+                      { value: 'downloaded', label: 'Скачано' },
+                    ]}
+                  />
+                  <FilterSelect
+                    value={informer}
+                    placeholder="Информатор"
+                    onChange={(v) => { setInformer(v); setPage(1) }}
+                    options={(informers ?? []).map((inf: { id: number; name: string }) => ({ value: String(inf.id), label: inf.name }))}
+                  />
+                </FilterGroup>
+
+                <div className="flex items-center justify-between border-t pt-3">
+                  <Button type="button" variant="ghost" size="sm" onClick={handleReset} disabled={!hasFilters}>
+                    <X />
+                    Сбросить
+                  </Button>
+                  <Button type="button" size="sm" onClick={() => setFiltersOpen(false)}>Готово</Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
